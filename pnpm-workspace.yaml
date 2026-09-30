@@ -1,0 +1,5 @@
+packages:
+  - web
+onlyBuiltDependencies:
+  - wasm-pack
+  - esbuild

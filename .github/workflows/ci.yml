@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Engine: Vallado verification set, frames, Sun, grid-vs-brute-force,
+      # +Grid topology, step-size independence of the conjunction sieve
+      - name: cargo test
+        run: cargo test --release --manifest-path engine/Cargo.toml
+
+      - name: Build WASM
+        run: pnpm engine:build
+
+      - name: Typecheck
+        run: pnpm --filter web typecheck
+
+      # Web: snapshot decoding, Hermite interpolation error, satellite.js cross-check
+      - name: vitest
+        run: WRITE_VALIDATION=1 pnpm --filter web test
+
+      - name: Validation plots
+        run: |
+          cargo run --release --manifest-path engine/Cargo.toml --example validate -- docs/validation/vallado-errors.csv
+          pnpm --filter web plots
+
+      - name: Build site
+        run: pnpm --filter web build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation
+          path: |
+            docs/validation/*.svg
+            docs/validation/*.csv
+            docs/*.svg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: web/dist

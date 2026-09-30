@@ -1,0 +1,13 @@
+node_modules/
+dist/
+engine/target/
+engine/pkg/
+web/src/engine-pkg/
+data/cache/
+*.log
+.DS_Store
+.vite/
+coverage/
+playwright-report/
+test-results/
+.playwright-mcp/

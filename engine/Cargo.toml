@@ -1,0 +1,27 @@
+[package]
+name = "kessler-engine"
+version = "0.1.0"
+edition = "2021"
+description = "First-principles orbital core for Kessler: SGP4/SDP4, reference frames, laser-link routing, conjunction screening, coverage"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+
+[dev-dependencies]
+# Test reference only: the engine never calls it.
+sgp4 = "2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O3", "--enable-simd", "--enable-bulk-memory", "--enable-nontrapping-float-to-int", "--enable-sign-ext"]

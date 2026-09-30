@@ -1,0 +1,20 @@
+{
+  "generated": "2026-09-30T08:18:50.769Z",
+  "source": "CelesTrak GP (active + debris groups + analyst)",
+  "objects": 19887,
+  "counts": {
+    "payload": 3448,
+    "starlink": 11128,
+    "constellation": 2021,
+    "rocketBody": 7,
+    "debris": 3275,
+    "station": 8
+  },
+  "skipped": {
+    "stale": 0,
+    "invalid": 0,
+    "duplicates": 0
+  },
+  "bytes": 1179163,
+  "format": "KSLR v1 (see data/fetch-tles.mjs)"
+}
