@@ -13,7 +13,7 @@
 // CelesTrak at runtime; it only loads the snapshot.
 //
 // Snapshot format (little-endian, structure-of-arrays so it compresses well):
-//   header 32 B : "KSLR" | u32 version=1 | u32 count | u32 nameBytes | f64 generatedUnixMs | u32 x2 reserved
+//   header 32 B : "ORBX" | u32 version=1 | u32 count | u32 nameBytes | f64 generatedUnixMs | u32 x2 reserved
 //   f64[n] epoch (Julian date, UTC)    f64[n] mean motion (rev/day)
 //   f32[n] ecc, incl, raan, argp, mean anomaly (deg), bstar (1/Earth radii)
 //   u32[n] NORAD id    u8[n] category    u8[n] name length    utf-8 names
@@ -159,7 +159,7 @@ function encode(objects, generatedMs) {
   const size = 32 + n * (8 + 8 + 6 * 4 + 4 + 1 + 1) + nameBytes;
   const buf = new ArrayBuffer(size);
   const dv = new DataView(buf);
-  new Uint8Array(buf, 0, 4).set(enc.encode('KSLR'));
+  new Uint8Array(buf, 0, 4).set(enc.encode('ORBX'));
   dv.setUint32(4, 1, true);
   dv.setUint32(8, n, true);
   dv.setUint32(12, nameBytes, true);
@@ -214,7 +214,7 @@ async function main() {
     counts,
     skipped: { stale, invalid, duplicates: rows.length - stale - invalid - objects.length },
     bytes: bin.byteLength,
-    format: 'KSLR v1 (see data/fetch-tles.mjs)',
+    format: 'ORBX v1 (see data/fetch-tles.mjs)',
   };
   await writeFile(outMeta, JSON.stringify(meta, null, 2) + '\n');
   console.log(`\n${objects.length} objects -> ${outBin} (${(bin.byteLength / 1024).toFixed(0)} KiB)`);

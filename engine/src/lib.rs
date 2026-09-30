@@ -1,4 +1,4 @@
-//! Kessler engine: the physics core of the orbital digital twin.
+//! Orbit Explorer engine: the physics core of the orbital digital twin.
 //!
 //! Everything here is written from first principles - no orbital mechanics
 //! crates. `satellite.js` and the `sgp4` crate appear only in tests, as

@@ -16,5 +16,5 @@
     "duplicates": 0
   },
   "bytes": 1179163,
-  "format": "KSLR v1 (see data/fetch-tles.mjs)"
+  "format": "ORBX v1 (see data/fetch-tles.mjs)"
 }

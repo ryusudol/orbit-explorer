@@ -110,7 +110,7 @@ function satjs(t) {
   for (let e = lo; e <= hi; e += 2) body += `<text x="${barsX(e)}" y="${H - M.b + 16}" text-anchor="middle" font-size="10.5" fill="${t.muted}">${fmtPow(10 ** e)}</text>`;
   body += `<text x="${(barsX(lo) + barsX(hi)) / 2}" y="${H - 14}" text-anchor="middle" font-size="11.5" fill="${t.text2}">|Δr| between the two implementations, millimetres (log bins)</text>`;
   const worst = Math.max(...nz);
-  return frame(t, W, H, 'Kessler SGP4 (Rust→WASM) vs satellite.js on the live catalogue', `${rows.length.toLocaleString('en-US')} states, 1 day before to 3 days after epoch. Worst ${worst.toFixed(2)} mm (a 14-day HEO at +3 d): floating-point, not physics.`, body);
+  return frame(t, W, H, 'Orbit Explorer SGP4 (Rust→WASM) vs satellite.js on the live catalogue', `${rows.length.toLocaleString('en-US')} states, 1 day before to 3 days after epoch. Worst ${worst.toFixed(2)} mm (a 14-day HEO at +3 d): floating-point, not physics.`, body);
 }
 
 // ------------------------------------------------------------------ scaling

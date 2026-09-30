@@ -1,12 +1,12 @@
 # Draft: 20,000 satellites in a browser tab, and three bugs only the tests could see
 
-*Draft blog post for Kessler. Numbers are from an Apple M1 with Chrome on the 30 September 2026 CelesTrak snapshot; every figure links back to a test or benchmark in the repo.*
+*Draft blog post for Orbit Explorer. Numbers are from an Apple M1 with Chrome on the 30 September 2026 CelesTrak snapshot; every figure links back to a test or benchmark in the repo.*
 
 ---
 
 A packet from London to New York takes about 27 ms through the best fibre physically possible: a straight cable along the great circle, with light slowed to c/1.468 by the glass. Over Starlink's lasers it takes about 21 ms, even though it first climbs ~500 km to the shell, hops through 7–11 satellites, and comes back down.
 
-I wanted to *watch* that happen with real satellites in their real positions, and to compute it myself rather than read it off someone's API. The result is Kessler: a browser tab that propagates every one of the 19,887 objects CelesTrak publishes, rebuilds a model of the Starlink laser mesh four times a second, routes packets over it, and screens the whole catalogue for close approaches, at 60 fps.
+I wanted to *watch* that happen with real satellites in their real positions, and to compute it myself rather than read it off someone's API. The result is Orbit Explorer: a browser tab that propagates every one of the 19,887 objects CelesTrak publishes, rebuilds a model of the Starlink laser mesh four times a second, routes packets over it, and screens the whole catalogue for close approaches, at 60 fps.
 
 The rendering was the easy part. What I want to write about is how I convinced myself the numbers are right, because each of the three bugs I found would have produced a demo that looked perfect.
 
@@ -34,7 +34,7 @@ The fix is camera-relative rendering. Every instanced layer sits *at the camera*
 
 ## 4. Recovering Starlink's shells without being told
 
-Nothing in the element sets says "this satellite is in shell 3, plane 41". Kessler recovers that on every update from the singly-averaged mean elements SGP4 already computes. It gap-clusters inclination (0.08°), then altitude (6 km), into shells, drops "shells" under 200 satellites (launch batches still raising orbit), clusters RAAN on the circle (0.9°) into planes, and sorts each plane by argument of latitude.
+Nothing in the element sets says "this satellite is in shell 3, plane 41". Orbit Explorer recovers that on every update from the singly-averaged mean elements SGP4 already computes. It gap-clusters inclination (0.08°), then altitude (6 km), into shells, drops "shells" under 200 satellites (launch batches still raising orbit), clusters RAAN on the circle (0.9°) into planes, and sorts each plane by argument of latitude.
 
 On the current catalogue that yields six shells, the biggest being 5,049 satellites at 53.2° and 455 km in 76 planes. Each satellite links fore and aft in its plane and to the nearest satellite in the next plane east (+Grid): 18,422 links, rebuilt in 2.8 ms. Dijkstra from terminal to terminal takes 0.35 ms. The first version allowed 3,000 km links and let small shells participate, and the mesh looked like a spider had been at it. Measuring the link-length histogram per shell showed the long diagonals all came from half-empty shells.
 

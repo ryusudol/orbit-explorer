@@ -41,4 +41,4 @@ jobs:
             echo "CLOUDFLARE_API_TOKEN not set; skipping deploy."
             exit 0
           fi
-          npx --yes wrangler@4 pages deploy web/dist --project-name=kessler --branch=main
+          npx --yes wrangler@4 pages deploy web/dist --project-name=orbit-explorer --branch=main

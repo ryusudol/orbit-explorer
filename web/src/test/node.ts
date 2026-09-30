@@ -1,13 +1,13 @@
 // Test helpers: load the WASM engine and the committed snapshot under Node.
 import { readFileSync } from 'node:fs';
-import { initSync } from '../engine-pkg/kessler_engine.js';
+import { initSync } from '../engine-pkg/orbit_explorer_engine.js';
 import { decodeCatalog, type Catalog } from '../sim/catalog';
 
 let loaded = false;
 
 export function loadEngineSync() {
   if (!loaded) {
-    initSync({ module: readFileSync(new URL('../engine-pkg/kessler_engine_bg.wasm', import.meta.url)) });
+    initSync({ module: readFileSync(new URL('../engine-pkg/orbit_explorer_engine_bg.wasm', import.meta.url)) });
     loaded = true;
   }
 }

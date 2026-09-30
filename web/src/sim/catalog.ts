@@ -1,4 +1,4 @@
-// Decoder for the KSLR snapshot written by data/fetch-tles.mjs.
+// Decoder for the ORBX snapshot written by data/fetch-tles.mjs.
 
 export const ELEMENT_STRIDE = 8;
 
@@ -36,7 +36,7 @@ export interface Catalog {
 export function decodeCatalog(buffer: ArrayBuffer): Catalog {
   const dv = new DataView(buffer);
   const magic = new TextDecoder().decode(new Uint8Array(buffer, 0, 4));
-  if (magic !== 'KSLR') throw new Error(`not a catalogue snapshot (magic ${magic})`);
+  if (magic !== 'ORBX') throw new Error(`not a catalogue snapshot (magic ${magic})`);
   const version = dv.getUint32(4, true);
   if (version !== 1) throw new Error(`unsupported snapshot version ${version}`);
   const n = dv.getUint32(8, true);

@@ -4,12 +4,12 @@
 //!
 //! Browser (WASM) numbers are measured live in the app's Benchmarks panel.
 
-use kessler_engine::batch::{Batch, ELEMENT_STRIDE};
-use kessler_engine::conjunction::Screener;
-use kessler_engine::frames::C_KM_S;
-use kessler_engine::grid::{brute_force_pairs, SpatialHash};
-use kessler_engine::isl::{self, IslConfig, Terminal};
-use kessler_engine::sgp4::gstime;
+use orbit_explorer_engine::batch::{Batch, ELEMENT_STRIDE};
+use orbit_explorer_engine::conjunction::Screener;
+use orbit_explorer_engine::frames::C_KM_S;
+use orbit_explorer_engine::grid::{brute_force_pairs, SpatialHash};
+use orbit_explorer_engine::isl::{self, IslConfig, Terminal};
+use orbit_explorer_engine::sgp4::gstime;
 use std::time::Instant;
 
 struct Snapshot {
@@ -20,7 +20,7 @@ struct Snapshot {
 
 fn load(path: &str) -> Snapshot {
     let b = std::fs::read(path).expect("read snapshot");
-    assert_eq!(&b[0..4], b"KSLR");
+    assert_eq!(&b[0..4], b"ORBX");
     let n = u32::from_le_bytes(b[8..12].try_into().unwrap()) as usize;
     let gen_ms = f64::from_le_bytes(b[16..24].try_into().unwrap());
     let f64_at = |off: usize, i: usize| f64::from_le_bytes(b[off + 8 * i..off + 8 * i + 8].try_into().unwrap());

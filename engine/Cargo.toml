@@ -1,8 +1,8 @@
 [package]
-name = "kessler-engine"
+name = "orbit-explorer-engine"
 version = "0.1.0"
 edition = "2021"
-description = "First-principles orbital core for Kessler: SGP4/SDP4, reference frames, laser-link routing, conjunction screening, coverage"
+description = "First-principles orbital core for Orbit Explorer: SGP4/SDP4, reference frames, laser-link routing, conjunction screening, coverage"
 publish = false
 
 [lib]

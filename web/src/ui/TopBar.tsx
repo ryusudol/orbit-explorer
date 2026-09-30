@@ -22,7 +22,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
   return (
     <header className="topbar">
       <div className="panel brand">
-        <div className="brand-name">KESSLER</div>
+        <div className="brand-name">ORBIT EXPLORER</div>
         <div className="brand-sub">Orbital digital twin · every tracked object</div>
       </div>
 

@@ -2,8 +2,8 @@
 //! covering near-Earth drag, deep-space resonance (12 h and 24 h), Lyddane
 //! singularities, low perigee and decay.
 
-use kessler_engine::sgp4::OpsMode;
-use kessler_engine::verification::{expected_errors, load, run};
+use orbit_explorer_engine::sgp4::OpsMode;
+use orbit_explorer_engine::verification::{expected_errors, load, run};
 
 const TLE: &str = include_str!("../testdata/SGP4-VER.TLE");
 const OUT: &str = include_str!("../testdata/tcppver.out");

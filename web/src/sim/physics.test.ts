@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { geodetic_to_teme } from '../engine-pkg/kessler_engine.js';
+import { geodetic_to_teme } from '../engine-pkg/orbit_explorer_engine.js';
 import { loadEngineSync } from '../test/node';
 import { C_KM_S, capHalfAngle, fibreLatencyMs, geodeticToEcef, greatCircleKm, vacuumLatencyMs } from './physics';
 

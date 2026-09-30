@@ -6,7 +6,7 @@
 import { writeFileSync } from 'node:fs';
 import { json2satrec, sgp4 } from 'satellite.js';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { Propagator, gmst, sun_position_teme, teme_to_geodetic } from './engine-pkg/kessler_engine.js';
+import { Propagator, gmst, sun_position_teme, teme_to_geodetic } from './engine-pkg/orbit_explorer_engine.js';
 import { ELEMENT_STRIDE } from './sim/catalog';
 import { jdToMs } from './sim/time';
 import { loadEngineSync, loadSnapshot } from './test/node';

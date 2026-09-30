@@ -1,14 +1,14 @@
-# Kessler: an orbital digital twin
+# Orbit Explorer: an orbital digital twin
 
 **Every tracked object in Earth orbit, propagated live in the browser, with Starlink laser-link routing, conjunction screening and coverage analysis. All of it is built from first principles and checked against published references.**
 
-![Kessler: 19,887 objects, the Starlink laser mesh and a London → New York route](docs/media/hero.jpg)
+![Orbit Explorer: 19,887 objects, the Starlink laser mesh and a London → New York route](docs/media/hero.jpg)
 
 <p align="center"><img src="docs/media/orbit.webp" width="420" alt="The laser mesh flowing over the Atlantic at 10 minutes per second while the London–New York route re-routes"><br><sub>10 min/s: satellites move, the mesh rebuilds and the London → New York path re-routes, four times a second.</sub></p>
 
 A packet from London to New York over Starlink's lasers takes **~21 ms**. The best fibre possible, a straight cable along the great circle, takes **27.3 ms**. The twin computes that difference live from the satellites' real positions, and shows the path hop by hop.
 
-| | What Kessler computes | How it is checked |
+| | What Orbit Explorer computes | How it is checked |
 |---|---|---|
 | **Orbits** | SGP4/SDP4 written from the model definition (Vallado et al. 2006), including deep-space resonance and every `sgp4fix`. TEME → ECEF → WGS-84 geodetic, Sun position, conical Earth-shadow model. | **666/666** Vallado verification states to **0.12 mm**, and the reference's 7 error cases reproduced. **83.6% bit-identical** to satellite.js across the live catalogue (worst 4 mm). The `sgp4` crate agrees to **0.7 µm**. Meeus 25.a Sun; published sunrise times to < 2 min. |
 | **Laser links** | Shells and orbital planes recovered from mean elements by gap clustering; +Grid topology rebuilt every 250 ms; Dijkstra from ground terminal to ground terminal. | Synthetic Walker shells give exactly 2N links; path length equals the sum of its hops; a test proves the result is never shorter than the chord. |
@@ -43,7 +43,7 @@ Apple M1, Chrome, 19,887 objects (CelesTrak snapshot, 30 Sep 2026).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/validation/satellitejs-dark.svg">
-  <img alt="Distribution of differences between Kessler's SGP4 and satellite.js on the live catalogue" src="docs/validation/satellitejs-light.svg">
+  <img alt="Distribution of differences between Orbit Explorer's SGP4 and satellite.js on the live catalogue" src="docs/validation/satellitejs-light.svg">
 </picture>
 
 What each test proves, and where it lives:
@@ -84,7 +84,7 @@ What each test proves, and where it lives:
 
 **Camera-relative rendering.** JavaScript numbers are already float64, so WASM here is about speed, not precision. The precision problem is on the GPU: float32 resolves ~0.5 m at 7,000 km from Earth's centre, which is visible jitter when the camera follows a satellite from a few hundred kilometres away. So every instanced layer (satellites, links, route, orbit trail) is placed *at the camera*, and each instance stores `position − camera`, subtracted on the CPU in float64. Near the camera the offsets are small and exact; far away the float32 error is sub-pixel. The model-view matrix is then just the camera rotation, which three.js composes in float64. The trade-off is ~240 KB of instance data re-uploaded per frame at 20k objects, which is noise next to the frame budget.
 
-**Laser mesh.** Starlink's real inter-satellite topology isn't public, so Kessler models the +Grid used in the ISL literature: two in-plane links (fore and aft) plus one to the nearest satellite in the next plane east. Nothing is labelled. Every update, the analysis worker clusters mean inclination, then mean altitude (gaps > 0.08° and > 6 km), into shells. Shells under 200 satellites are launch batches still raising orbit, and get no links. It then clusters RAAN on the circle into planes (gaps > 0.9°) and orders each plane by argument of latitude. On the September 2026 catalogue this recovers six shells, including the 5,049-satellite 53.2° shell at 455 km in 76 planes. Links must stay above 80 km altitude end to end, and are capped at 2,600 km in-plane and 1,500 km cross-plane. Routing adds the two ground terminals as graph nodes, connected to every shell satellite above 25° elevation. Latency is the path length divided by c.
+**Laser mesh.** Starlink's real inter-satellite topology isn't public, so Orbit Explorer models the +Grid used in the ISL literature: two in-plane links (fore and aft) plus one to the nearest satellite in the next plane east. Nothing is labelled. Every update, the analysis worker clusters mean inclination, then mean altitude (gaps > 0.08° and > 6 km), into shells. Shells under 200 satellites are launch batches still raising orbit, and get no links. It then clusters RAAN on the circle into planes (gaps > 0.9°) and orders each plane by argument of latitude. On the September 2026 catalogue this recovers six shells, including the 5,049-satellite 53.2° shell at 455 km in 76 planes. Links must stay above 80 km altitude end to end, and are capped at 2,600 km in-plane and 1,500 km cross-plane. Routing adds the two ground terminals as graph nodes, connected to every shell satellite above 25° elevation. Latency is the path length divided by c.
 
 **Conjunction screening.** Two objects that pass within `d` at their time of closest approach are, at the nearest sample, at most `d + v_rel,max·Δt/2` apart. With v_rel,max = 16 km/s, that bound is the spatial-hash radius, so the sieve cannot miss anything between samples. The step-size independence test is the proof in practice. Each candidate pair gets a linear TCA estimate, and pairs whose estimate lands in the current window are refined by Newton iterations on d/dt |Δr|² = 0 using full SGP4 states. Pairs already inside the threshold at a sample are always refined, because for slow pairs the linear estimate is ill-conditioned. Pairs slower than 10 m/s are docked vehicles or formations (the ISS modules, for example) and are counted, not reported.
 

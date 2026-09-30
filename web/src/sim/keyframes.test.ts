@@ -1,7 +1,7 @@
 // The render loop never runs SGP4 per object per frame; it interpolates
 // keyframes. These tests pin down how much accuracy that costs.
 import { beforeAll, describe, expect, it } from 'vitest';
-import { Propagator } from '../engine-pkg/kessler_engine.js';
+import { Propagator } from '../engine-pkg/orbit_explorer_engine.js';
 import { loadEngineSync, loadSnapshot } from '../test/node';
 import { ELEMENT_STRIDE, subset } from './catalog';
 import { createKeyframes, extrapolate, hermite } from './keyframes';

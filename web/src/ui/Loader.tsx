@@ -12,12 +12,12 @@ export function Loader() {
           <div className="h">Can't start</div>
           <div>{error}</div>
           <p className="note">
-            Kessler needs a browser with WebGPU or WebGL 2, and module workers. Recent Chrome, Edge, Safari and Firefox all qualify.
+            Orbit Explorer needs a browser with WebGPU or WebGL 2, and module workers. Recent Chrome, Edge, Safari and Firefox all qualify.
           </p>
         </div>
       ) : (
         <div className="loader-box">
-          <div className="brand-name">KESSLER</div>
+          <div className="brand-name">ORBIT EXPLORER</div>
           <div className="loader-step">{step}…</div>
           <div className="loader-bar" />
         </div>

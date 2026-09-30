@@ -1,8 +1,8 @@
 //! Cross-check against an independent Rust implementation (the `sgp4` crate,
 //! test-only dependency) on the Vallado objects at many times.
 
-use kessler_engine::sgp4::{Gravity, OpsMode, Satrec};
-use kessler_engine::tle::parse_tle;
+use orbit_explorer_engine::sgp4::{Gravity, OpsMode, Satrec};
+use orbit_explorer_engine::tle::parse_tle;
 
 const TLE: &str = include_str!("../testdata/SGP4-VER.TLE");
 

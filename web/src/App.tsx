@@ -47,10 +47,10 @@ export function App() {
       }
       set({ meta, groupCounts: counts, altitudeKm: altitude, groups: catalog.group });
       controller = new SceneController(canvasRef.current!, labelsRef.current!, catalog);
-      if (import.meta.env.DEV) Object.assign(globalThis, { __kessler: { store: useStore, controller } });
+      if (import.meta.env.DEV) Object.assign(globalThis, { __orbitExplorer: { store: useStore, controller } });
       await controller.init();
       if (!cancelled) {
-        performance.mark('kessler-ready'); // first interactive frame, for load-time measurements
+        performance.mark('orbit-explorer-ready'); // first interactive frame, for load-time measurements
         set({ phase: 'ready', readyMs: performance.now() });
       }
     };

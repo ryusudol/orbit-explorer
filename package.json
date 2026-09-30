@@ -1,11 +1,11 @@
 {
-  "name": "kessler",
+  "name": "orbit-explorer",
   "private": true,
   "description": "Orbital digital twin: every tracked object, Starlink laser-link routing, conjunction screening - from first principles.",
   "packageManager": "pnpm@10.30.3",
   "type": "module",
   "scripts": {
-    "engine:build": "wasm-pack build engine --release --target web --out-dir ../web/src/engine-pkg --out-name kessler_engine --no-pack",
+    "engine:build": "wasm-pack build engine --release --target web --out-dir ../web/src/engine-pkg --out-name orbit_explorer_engine --no-pack",
     "engine:test": "cargo test --release --manifest-path engine/Cargo.toml",
     "data": "node data/fetch-tles.mjs",
     "dev": "pnpm engine:build && pnpm --filter web dev",
