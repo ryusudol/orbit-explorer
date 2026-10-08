@@ -4,7 +4,8 @@
 import { create } from 'zustand';
 import type { ConjunctionEvent } from '../workers/conjunction.worker';
 
-export type Tab = 'route' | 'conj' | 'coverage' | 'catalog' | 'perf';
+/** The analysis panel on show; 'explore' is the bare globe. */
+export type Tab = 'explore' | 'route' | 'conj' | 'coverage' | 'catalog' | 'perf';
 
 export interface Layers {
   starlink: boolean;
@@ -14,9 +15,10 @@ export interface Layers {
   route: boolean;
   coverage: boolean;
   cones: boolean;
-  trail: boolean;
-  eclipse: boolean;
+  /** view frame: true turns the camera with the Earth (ground fixed), false holds it to the stars */
   earthFixed: boolean;
+  /** NASA Milky Way map and the Sun */
+  sky: boolean;
 }
 
 export interface RouteInfo {
@@ -65,6 +67,8 @@ export interface ConjState {
   elapsedMs: number;
   total: number;
   events: ConjunctionEvent[];
+  /** all encounters by miss distance: under 1 km, 1–2 km, 2 km and over */
+  bands: [number, number, number];
   stats: { steps: number; candidatePairs: number; refined: number; formationPairs: number } | null;
   hours: number;
   thresholdKm: number;
@@ -168,9 +172,8 @@ export const useStore = create<State>((set) => ({
     route: true,
     coverage: false,
     cones: true,
-    trail: true,
-    eclipse: true,
     earthFixed: true,
+    sky: true,
   },
   tab: 'route',
   selected: null,
@@ -193,6 +196,7 @@ export const useStore = create<State>((set) => ({
     elapsedMs: 0,
     total: 0,
     events: [],
+    bands: [0, 0, 0],
     stats: null,
     hours: 6,
     thresholdKm: 5,

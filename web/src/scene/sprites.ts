@@ -8,9 +8,9 @@
 // the camera rotation, which three.js composes in float64 on the CPU.
 
 import * as THREE from 'three/webgpu';
-import { float, instancedDynamicBufferAttribute, max, smoothstep, uv, vec3, vec4 } from 'three/tsl';
+import { exp, float, instancedDynamicBufferAttribute, max, smoothstep, uv, vec3, vec4 } from 'three/tsl';
 
-export type SpriteShape = 'glow' | 'ring';
+export type SpriteShape = 'glow' | 'ring' | 'star';
 
 export class SpriteLayer {
   readonly object: THREE.Sprite;
@@ -40,7 +40,11 @@ export class SpriteLayer {
     mat.sizeNode = col.w;
     mat.colorNode = col.xyz;
     const d = uv().sub(0.5).length().mul(2); // 0 at centre, 1 at the quad edge
-    if (shape === 'glow') {
+    if (shape === 'star') {
+      // Gaussian point-spread function with the quad at ±3σ: the size sets σ,
+      // the colour gain sets the peak, so stars stay pin-sharp at any DPR
+      mat.opacityNode = exp(d.mul(d).mul(-4.5));
+    } else if (shape === 'glow') {
       const core = smoothstep(1.0, 0.0, d);
       mat.opacityNode = core.mul(core).mul(core.mul(0.6).add(0.4));
     } else {

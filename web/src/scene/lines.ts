@@ -86,3 +86,76 @@ export class ThickPath {
     this.object.visible = segs > 0;
   }
 }
+
+/**
+ * A closed orbit as a thick additive polyline. Brightness doubles as opacity
+ * (additive blending), so a per-vertex fade makes the track trail off behind
+ * the object and lead brighter ahead of it.
+ */
+export class OrbitPath {
+  readonly object: LineSegments2;
+  private geometry: LineSegmentsGeometry;
+  private buffer: Float32Array;
+  private colors: Float32Array;
+  private capacity: number;
+
+  constructor(capacity: number, widthPx: number) {
+    this.capacity = capacity;
+    this.buffer = new Float32Array(capacity * 6);
+    this.colors = new Float32Array(capacity * 6);
+    this.geometry = new LineSegmentsGeometry();
+    this.geometry.setPositions(this.buffer);
+    this.geometry.setColors(this.colors);
+    const mat = new THREE.Line2NodeMaterial({
+      vertexColors: true,
+      linewidth: widthPx,
+      worldUnits: false,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    this.object = new LineSegments2(this.geometry, mat);
+    this.object.frustumCulled = false;
+    this.object.renderOrder = 2;
+    this.object.visible = false;
+  }
+
+  /**
+   * points: `count` world positions sampled over one period, centred on now.
+   * Segments with a NaN end (decayed or invalid samples) are skipped.
+   */
+  update(points: Float64Array, count: number, color: THREE.Color, cam: THREE.Vector3) {
+    const b = this.buffer, c = this.colors;
+    let k = 0;
+    const n = Math.min(count - 1, this.capacity);
+    for (let s = 0; s < n; s++) {
+      const p = 3 * s;
+      if (Number.isNaN(points[p]) || Number.isNaN(points[p + 3])) continue;
+      for (let e = 0; e < 2; e++) {
+        const q = p + 3 * e;
+        b[6 * k + 3 * e] = points[q] - cam.x;
+        b[6 * k + 3 * e + 1] = points[q + 1] - cam.y;
+        b[6 * k + 3 * e + 2] = points[q + 2] - cam.z;
+        // 0 one half-period behind, 1 at the object, ~0.55 one half-period ahead
+        const t = (s + e) / (count - 1) - 0.5;
+        const w = t < 0 ? 0.06 + 0.94 * (1 + t * 2) ** 2.2 : 1 - 0.45 * (t * 2) ** 0.8;
+        c[6 * k + 3 * e] = color.r * w;
+        c[6 * k + 3 * e + 1] = color.g * w;
+        c[6 * k + 3 * e + 2] = color.b * w;
+      }
+      k++;
+    }
+    const start = this.geometry.attributes.instanceStart as THREE.InterleavedBufferAttribute;
+    start.data.needsUpdate = true;
+    const colorStart = this.geometry.attributes.instanceColorStart as THREE.InterleavedBufferAttribute;
+    colorStart.data.needsUpdate = true;
+    this.geometry.instanceCount = k;
+    this.object.position.copy(cam);
+    this.object.visible = k > 0;
+  }
+
+  /** Hides the track (no selection). */
+  hide() {
+    this.object.visible = false;
+  }
+}

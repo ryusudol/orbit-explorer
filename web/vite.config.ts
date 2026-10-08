@@ -11,7 +11,8 @@ const isolation = {
 
 export default defineConfig({
   plugins: [react(), babel({ presets: [reactCompilerPreset()] })],
-  server: { headers: isolation },
+  // PORT lets a launcher assign the port; otherwise Vite's default 5173.
+  server: { headers: isolation, port: Number(process.env.PORT) || 5173, strictPort: !!process.env.PORT },
   preview: { headers: isolation },
   worker: { format: 'es' },
   build: { target: 'es2022', assetsInlineLimit: 0, chunkSizeWarningLimit: 1500 },

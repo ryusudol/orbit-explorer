@@ -21,7 +21,7 @@ Apple M1, Chrome, 19,887 objects (CelesTrak snapshot, 30 Sep 2026).
 
 | | |
 |---|---|
-| Render | **60 fps**, 3 ms of CPU per frame; interpolating all 19,887 positions takes **0.25 ms** |
+| Render | **60 fps** on the MacBook Air's own display (2880×1800); all per-frame JavaScript takes **~1.2 ms**, interpolating all 19,887 positions **0.25 ms** of it. The frame is GPU-bound: on a 4K external display the same M1 runs at 12–40 fps depending on the browser (see *Limits*) |
 | SGP4, all objects | **6.4 ms** native (323 ns/object) · **7 ms** per keyframe across 4 WASM workers |
 | Keyframe interpolation error (cubic Hermite) | **1.0 m** worst case at 60 s spacing · 0.27 km at 300 s (1 h/s time warp) |
 | Laser mesh rebuild | 10,766 linked satellites, 18,422 links in **2.8 ms** · Dijkstra **0.35 ms** |
@@ -82,11 +82,26 @@ What each test proves, and where it lives:
 
 **SGP4 runs at 1–12 Hz, not per frame.** Four workers propagate their slice of the catalogue straight into a `SharedArrayBuffer` with four keyframe slots. The main thread requests a keyframe by writing a Julian date and bumping an `Int32` with `Atomics.notify`. Workers blocked in `Atomics.wait` wake up, propagate, and bump a done-counter. No `postMessage` happens per keyframe and nothing is copied. Each frame interpolates every object between two keyframes with a cubic Hermite spline on position and velocity, a 4th-order method whose measured error is quoted above. Keyframe spacing scales with time warp (1 s at real time, 300 s at 1 h/s). The **selected object is propagated exactly every frame**, and the routing and screening workers always use exact SGP4 states.
 
-**Camera-relative rendering.** JavaScript numbers are already float64, so WASM here is about speed, not precision. The precision problem is on the GPU: float32 resolves ~0.5 m at 7,000 km from Earth's centre, which is visible jitter when the camera follows a satellite from a few hundred kilometres away. So every instanced layer (satellites, links, route, orbit trail) is placed *at the camera*, and each instance stores `position − camera`, subtracted on the CPU in float64. Near the camera the offsets are small and exact; far away the float32 error is sub-pixel. The model-view matrix is then just the camera rotation, which three.js composes in float64. The trade-off is ~240 KB of instance data re-uploaded per frame at 20k objects, which is noise next to the frame budget.
+**Camera-relative rendering.** JavaScript numbers are already float64, so WASM here is about speed, not precision. The precision problem is on the GPU: float32 resolves ~0.5 m at 7,000 km from Earth's centre, which is visible jitter when the camera follows a satellite from a few hundred kilometres away. So every instanced layer (satellites, stars, links, route, orbits) is placed *at the camera*, and each instance stores `position − camera`, subtracted on the CPU in float64. Near the camera the offsets are small and exact; far away the float32 error is sub-pixel. The model-view matrix is then just the camera rotation, which three.js composes in float64. The trade-off is ~240 KB of instance data re-uploaded per frame at 20k objects, which is noise next to the frame budget.
 
 **Laser mesh.** Starlink's real inter-satellite topology isn't public, so Orbit Explorer models the +Grid used in the ISL literature: two in-plane links (fore and aft) plus one to the nearest satellite in the next plane east. Nothing is labelled. Every update, the analysis worker clusters mean inclination, then mean altitude (gaps > 0.08° and > 6 km), into shells. Shells under 200 satellites are launch batches still raising orbit, and get no links. It then clusters RAAN on the circle into planes (gaps > 0.9°) and orders each plane by argument of latitude. On the September 2026 catalogue this recovers six shells, including the 5,049-satellite 53.2° shell at 455 km in 76 planes. Links must stay above 80 km altitude end to end, and are capped at 2,600 km in-plane and 1,500 km cross-plane. Routing adds the two ground terminals as graph nodes, connected to every shell satellite above 25° elevation. Latency is the path length divided by c.
 
 **Conjunction screening.** Two objects that pass within `d` at their time of closest approach are, at the nearest sample, at most `d + v_rel,max·Δt/2` apart. With v_rel,max = 16 km/s, that bound is the spatial-hash radius, so the sieve cannot miss anything between samples. The step-size independence test is the proof in practice. Each candidate pair gets a linear TCA estimate, and pairs whose estimate lands in the current window are refined by Newton iterations on d/dt |Δr|² = 0 using full SGP4 states. Pairs already inside the threshold at a sample are always refined, because for slow pairs the linear estimate is ill-conditioned. Pairs slower than 10 m/s are docked vehicles or formations (the ISS modules, for example) and are counted, not reported.
+
+## The interface
+
+The globe fills the screen; the interface is a few pieces of type and thin-lined black panels that appear when needed, in a monochrome, uppercase-labelled style after SpaceX's mission graphics. Colour is reserved for data.
+
+- **Modes** across the top: Explore (just the globe), Routing, Conjunctions, Coverage and Catalogue. Each opens one panel on the right; the globe re-centres into the space that is left by shifting the projection, not the camera.
+- **⌘K** opens one search box for 19,887 objects (by name or NORAD ID), well-known objects and view actions.
+- **Selecting** an object shows its live state and always draws its orbit, fading behind it and bright ahead. **Follow** flies the camera there along a great-circle arc and rides along; stopping zooms back out with the object still centred. Selecting a conjunction draws both objects' orbits, so the crossing geometry is visible.
+- **The time bar** is a mission timeline: ±24 h around now, with each screened conjunction marked where it happens. Click one to jump to 90 s before closest approach.
+- **Layers** toggle the laser mesh, route, terminal visibility cones, coverage heatmap and the sky, and choose the reference frame: *Rotate with Earth* (ground fixed, satellites sweep over it) or *Fixed to stars* (orbital planes fixed, the Earth turns beneath them).
+- **Object groups** use Paul Tol's high-contrast scheme (Starlink blue, payloads yellow, debris red), whose hues also differ in lightness, so they survive colour-blindness and greyscale. The dark blue is lifted on the globe and ringed in the legend to stay legible against black.
+
+**The sky is data too.** The Milky Way is NASA SVS's *Deep Star Maps 2020* (Gaia DR2, bright stars removed) placed on the celestial sphere in the scene's equatorial frame. The stars it removed come back as the 116,833 Hipparcos stars, each drawn as a Gaussian point-spread function sized in device pixels from its V magnitude and coloured by B−V, so they stay sharp on 4K screens. The Sun sits where the engine puts it, at its true 0.53° with limb darkening, and sets behind the Earth's limb.
+
+**Imagery** streams in sharper each step: 2k JPEG at first paint, then 4k KTX2, then on high-density displays a 16384×8192 Earth (Blue Marble NG by day, 500 m Black Marble lights by night) and a 16k sky, each as a 4×4 grid of 4096×2048 tiles because WebGPU only guarantees 8192-pixel textures. Tiles facing the camera load first. Basis builds mipmaps with wrap-around addressing by default, which drew faint lines along tile seams at lower mip levels; the texture scripts switch it to clamping.
 
 ## What the data says
 
@@ -105,9 +120,14 @@ pnpm test           # cargo test (engine) + vitest (web, incl. the satellite.js 
 pnpm validate       # regenerate docs/validation/*.svg
 pnpm bench          # native benchmarks → docs/benchmarks-native.json
 pnpm data           # refresh the catalogue snapshot from CelesTrak (cached; respects its 2 h update cycle)
+pnpm --filter web textures   # Earth imagery: 2k, 4k and 16k (4x4 tiles of 4096x2048) KTX2 tiers + ocean mask
+pnpm --filter web sky        # Milky Way (16k, tiled) and the Hipparcos star catalogue
+                             # (both download ~700 MB of NASA/ESA sources once, cached in data/cache/)
 ```
 
-In the app: drag to orbit, scroll to zoom, click a satellite to select it, **F** to follow, **R** to reset, **Space** to pause. The Conjunctions tab's *Watch it happen* jumps the clock to 90 s before the closest approach and rides along with the first object.
+In the app: drag to orbit, scroll to zoom, click a satellite to select it. **⌘K** (or **/**) searches objects and actions, **1–5** switch between Explore, Routing, Conjunctions, Coverage and Catalogue, **F** flies to the selection and follows it, **Esc** zooms back out, **R** resets, **L** opens layers, **H** hides the interface, **Space** pauses. The Conjunctions view's *Watch it happen* jumps the clock to 90 s before the closest approach and rides along with the first object, with both objects' orbits drawn.
+
+Imagery streams in sharper each step: 2k JPEG at first paint, then 4k KTX2, then, on displays at least ~2560 device pixels across, 16k Earth and sky as 4x4 grids of tiles, nearest-to-view first. `?quality=uhd` or `?quality=standard` overrides the choice.
 
 The page must be **cross-origin isolated** (`COOP: same-origin`, `COEP: require-corp`) for `SharedArrayBuffer`. The Vite config sends the headers in dev and preview, and `web/public/_headers` does the same on Cloudflare Pages or Netlify. GitHub Pages can't set headers, which is why `.github/workflows/deploy.yml` targets Cloudflare Pages.
 
@@ -118,11 +138,11 @@ engine/          Rust → WASM: sgp4, frames, sun, grid, conjunction, isl, cover
   tests/         Vallado verification set, sgp4-crate cross-check
   examples/      validate (error CSV), bench (native benchmarks)
 web/             Vite + React 19 + Three.js (WebGPURenderer, TSL) + D3
-  src/scene/     SceneController, Earth shader, camera-relative sprite/line layers, overlays
+  src/scene/     SceneController (camera flights, follow), tiled Earth shader, sky (Milky Way, stars, Sun), camera-relative sprite/line layers
   src/workers/   SGP4 pool (SharedArrayBuffer), analysis (links/routing/coverage), conjunctions
   src/sim/       snapshot decoder, keyframes + Hermite, clock, physics, cities
-  src/ui/        React HUD         src/panels/   D3 charts in React-owned containers
-  scripts/       NASA textures → JPEG + KTX2, validation/benchmark plots
+  src/ui/        React HUD: header, mode panels, ⌘K palette, timeline     src/panels/   D3 charts in React-owned containers
+  scripts/       NASA textures → JPEG + tiled KTX2, sky (Milky Way map, Hipparcos stars), validation/benchmark plots
 data/            snapshot builder (CelesTrak, or Space-Track with credentials)
 docs/            validation plots, benchmarks, blog draft
 .github/         CI, daily TLE snapshot, Cloudflare Pages deploy
@@ -134,7 +154,9 @@ docs/            validation plots, benchmarks, blog draft
 - **TLE accuracy is ~1 km** at epoch and grows by km/day; SGP4 is exact to its own model, not to reality.
 - **The laser topology is a model.** +Grid is the standard assumption in the literature; SpaceX's actual link scheduling is not public. The fibre comparison is deliberately the physical best case for fibre.
 - UT1 is taken as UTC (≤ 0.9 s), polar motion is ignored (< 15 m), and the Sun uses the Astronomical Almanac low-precision series (0.01°).
+- **Rendering is GPU-bound and doesn't adapt yet.** The canvas always renders at the display's density (up to 2×), with a half-resolution bloom pass on top. On an M1 driving a 4K external display that measured 12–18 fps in Zen (Firefox) and roughly 25–40 fps in Chrome. Adaptive resolution and a cheaper bloom are the planned fixes.
+- **The UHD imagery is heavy:** ~29 MB of tiles (18 MB of it the sky), downloaded only on high-density displays and only after the page is interactive.
 
 ## Credits & licences
 
-Orbital elements: [CelesTrak](https://celestrak.org) GP data (snapshotted daily, never fetched at runtime). Earth imagery: NASA Blue Marble Next Generation and Black Marble 2016 (public domain). SGP4 verification data: Vallado, Crawford, Hujsak & Kelso, *Revisiting Spacetrack Report #3*, AIAA 2006-6753. Test references only: satellite.js (MIT) and the `sgp4` crate (MIT).
+Orbital elements: [CelesTrak](https://celestrak.org) GP data (snapshotted daily, never fetched at runtime). Earth imagery: NASA Blue Marble Next Generation and Black Marble 2016 (public domain). Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio, *Deep Star Maps 2020*, built on Gaia DR2 (ESA/Gaia/DPAC). Stars: the Hipparcos main catalogue (ESA 1997, CDS I/239). Object colours: Paul Tol's high-contrast scheme. Type: Barlow and Geist Mono (SIL OFL). SGP4 verification data: Vallado, Crawford, Hujsak & Kelso, *Revisiting Spacetrack Report #3*, AIAA 2006-6753. Test references only: satellite.js (MIT) and the `sgp4` crate (MIT).

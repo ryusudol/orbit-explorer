@@ -33,3 +33,22 @@ export function relative(minutes: number): string {
 
 export const lat = (d: number) => `${Math.abs(d).toFixed(2)}°${d >= 0 ? 'N' : 'S'}`;
 export const lon = (d: number) => `${Math.abs(d).toFixed(2)}°${d >= 0 ? 'E' : 'W'}`;
+
+/** Orbital regime from mean altitude: LEO below 2,000 km, GEO near 35,786 km. */
+export function regime(altKm: number): string {
+  if (altKm < 2000) return 'LEO';
+  if (Math.abs(altKm - 35786) < 600) return 'GEO';
+  if (altKm < 35786) return 'MEO';
+  return 'HEO';
+}
+
+/** "Wed 8 Oct 2026" in UTC. */
+export const utcDate = (ms: number) =>
+  new Date(ms).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+export function duration(s: number): string {
+  if (s < 90) return `${Math.round(s)} s`;
+  if (s < 5400) return `${Math.round(s / 60)} min`;
+  if (s < 172800) return `${fixed(s / 3600, 1)} h`;
+  return `${fixed(s / 86400, 1)} d`;
+}

@@ -9,6 +9,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 
 import { Propagator, gmst, illumination, loadEngine, sun_position_teme, teme_to_geodetic } from '../engine';
+import { GROUP_HEX } from '../palette';
 import { Category, Group, subset, type Catalog } from '../sim/catalog';
 import { cityById } from '../sim/cities';
 import { fibreLatencyMs, geodeticToEcef, greatCircleKm, vacuumLatencyMs } from '../sim/physics';
@@ -17,24 +18,64 @@ import { SimClock, jdToMs } from '../sim/time';
 import { useStore, type Layers } from '../state/store';
 import type { AnalysisResult } from '../workers/analysis.worker';
 import { Earth } from './earth';
-import { SegmentLayer, ThickPath } from './lines';
+import { OrbitPath, SegmentLayer, ThickPath } from './lines';
 import { CoverageOverlay, visibilityCone } from './overlays';
+import { Sky, decodeStars } from './sky';
 import { SpriteLayer } from './sprites';
+import { ALL_TILES, loadInOrder } from './tiles';
 
 const R_EARTH = 6378.137;
 const MIN_ELEV_DEG = 25;
 const COVERAGE_GRID = { nlat: 90, nlon: 180 };
-const TRAIL_SAMPLES = 240;
+const ORBIT_SAMPLES = 361;
 const MAX_ROUTE_POINTS = 64;
 
-/** Series colours (dataviz reference palette, dark steps). */
-export const GROUP_HEX = ['#3987e5', '#d95926', '#199e70'];
+export { GROUP_HEX };
 const GROUP_COLORS = GROUP_HEX.map((h) => new THREE.Color(h));
+/**
+ * Point brightness per group. Tol's dark blue is only ~2:1 against black space,
+ * so it is lifted to a floor luminance; the scheme's lightness order (blue <
+ * red < yellow) is kept, and with it the hue.
+ */
+const GROUP_GAIN = GROUP_COLORS.map((c) => 1.5 * Math.max(1, 0.13 / (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b)));
 const GROUP_SIZE = [3.1, 3.3, 3.9];
 const WHITE = new THREE.Color('#ffffff');
 const ROUTE_COLOR = new THREE.Color('#fff1d6').multiplyScalar(2.2);
 const LINK_COLOR = new THREE.Color('#86b6ef');
 const SERIOUS = new THREE.Color('#ec835a');
+const ORBIT_COLOR = new THREE.Color('#dfe9ff');
+const PARTNER_ORBIT_COLOR = new THREE.Color('#ff9a62');
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+
+/**
+ * Texture tier for this display. UHD (16k Earth and sky, as tiles) only where it shows:
+ * a fine pointer and at least ~2560 device pixels across. `?quality=` overrides.
+ */
+function textureTier(): 'uhd' | 'standard' {
+  const q = new URLSearchParams(location.search).get('quality');
+  if (q === 'uhd' || q === 'standard') return q;
+  const coarse = matchMedia('(pointer: coarse)').matches;
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
+  const px = Math.max(screen.width, screen.height) * Math.min(window.devicePixelRatio, 2);
+  return !coarse && memory >= 8 && px >= 2560 ? 'uhd' : 'standard';
+}
+
+const easeInOutCubic = (u: number) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
+
+/** A camera move: eased, about the Earth's centre so it never cuts through the planet. */
+interface Flight {
+  t0: number;
+  dur: number;
+  fromPos: THREE.Vector3;
+  fromTarget: THREE.Vector3;
+  toPos: THREE.Vector3;
+  toTarget: THREE.Vector3;
+  /** moving destination: refresh toPos/toTarget each frame */
+  track?: () => void;
+  /** destination fixed to the ground (turns with the Earth in Earth-fixed view) */
+  earthFixed: boolean;
+  done?: () => void;
+}
 const CONE_TINT = new THREE.Color('#5598e7');
 
 let current: SceneController | null = null;
@@ -61,10 +102,10 @@ export class SceneController {
   private packets!: SpriteLayer;
   private links!: SegmentLayer;
   private route!: ThickPath;
-  private trail!: SegmentLayer;
+  private orbits!: [OrbitPath, OrbitPath];
   private coverage!: CoverageOverlay;
   private cones = new THREE.Group();
-  private stars!: THREE.Points;
+  private sky = new Sky();
 
   readonly n: number;
   private pos: Float64Array;
@@ -73,13 +114,14 @@ export class SceneController {
   private edges: Uint32Array | null = null;
   private routePath: Uint32Array | null = null;
   private routePoints = new Float64Array(MAX_ROUTE_POINTS * 3);
-  private trailPoints = new Float64Array(TRAIL_SAMPLES * 3);
-  private trailFor = -1;
-  private trailAt = 0;
+  /** cached one-period tracks, resampled twice a second */
+  private tracks = [0, 1].map(() => ({ for: -1, at: 0, pts: new Float64Array(ORBIT_SAMPLES * 3) }));
+  private flight: Flight | null = null;
   private lastGmst: number | null = null;
   private lastSlot = -2;
   private colorsDirty = true;
   private lastTarget = new THREE.Vector3();
+  private sunDir = new THREE.Vector3(1, 0, 0);
 
   private labelLayer: HTMLDivElement;
   private labels = new Map<string, HTMLDivElement>();
@@ -92,6 +134,13 @@ export class SceneController {
   private interpMs = 0;
   private pointer = { down: false, x: 0, y: 0, moved: false, lastHover: 0 };
   private disposed = false;
+  /** camera distance the zoom buttons are easing towards */
+  private zoomGoal: number | null = null;
+  /** screen area covered by UI panels, so the globe can centre in what's left */
+  private insets = { left: 0, right: 0, top: 0, bottom: 0 };
+  private insetsSet = false;
+  private viewShift = { x: 0, y: 0 };
+  private viewShiftGoal = { x: 0, y: 0 };
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -131,14 +180,7 @@ export class SceneController {
     const [day, night] = await Promise.all([load('/textures/earth-day-2k.jpg'), load('/textures/earth-night-2k.jpg')]);
     this.earth = new Earth(day, night);
     this.scene.add(this.earth.group);
-    // full-resolution imagery streams in after first paint: KTX2 (transcoded in a
-    // worker, stays compressed on the GPU), JPEG if the transcoder is unavailable
-    const ktx2 = new KTX2Loader().setTranscoderPath('/basis/').detectSupport(this.renderer);
-    const loadKtx = (url: string) => ktx2.loadAsync(url).then((t) => ((t.colorSpace = THREE.SRGBColorSpace), (t.anisotropy = 8), t));
-    Promise.all([loadKtx('/textures/earth-day.ktx2'), loadKtx('/textures/earth-night.ktx2')])
-      .catch(() => Promise.all([load('/textures/earth-day.jpg'), load('/textures/earth-night.jpg')]))
-      .then(([d, nt]) => !this.disposed && this.earth.setTextures(d, nt))
-      .finally(() => ktx2.dispose());
+    this.loadImagery(load);
 
     this.coverage = new CoverageOverlay(COVERAGE_GRID.nlat, COVERAGE_GRID.nlon);
     this.earth.group.add(this.coverage.mesh);
@@ -149,9 +191,8 @@ export class SceneController {
     this.packets = new SpriteLayer(48, 'glow', { renderOrder: 5 });
     this.links = new SegmentLayer(40_000, LINK_COLOR, 0.075);
     this.route = new ThickPath(MAX_ROUTE_POINTS, ROUTE_COLOR, 2.5);
-    this.trail = new SegmentLayer(TRAIL_SAMPLES, WHITE, 0.9);
-    this.stars = makeStars();
-    this.scene.add(this.stars, this.links.object, this.trail.object, this.route.object, this.sats.object, this.packets.object, this.markers.object);
+    this.orbits = [new OrbitPath(ORBIT_SAMPLES, 1.6), new OrbitPath(ORBIT_SAMPLES, 1.6)];
+    this.scene.add(...this.sky.objects, this.links.object, ...this.orbits.map((o) => o.object), this.route.object, this.sats.object, this.packets.object, this.markers.object);
 
     // post-processing: scene -> bloom -> tone map
     this.pipeline = new THREE.RenderPipeline(this.renderer);
@@ -164,7 +205,6 @@ export class SceneController {
     this.controls.dampingFactor = 0.08;
     this.controls.minDistance = R_EARTH + 400;
     this.controls.maxDistance = 250_000;
-    this.controls.rotateSpeed = 0.5;
     this.controls.zoomSpeed = 0.8;
     this.initialView();
 
@@ -186,13 +226,131 @@ export class SceneController {
 
   private onResize = () => {};
 
-  private initialView() {
-    // over the North Atlantic, framing London and New York
+  /**
+   * Imagery streams in after first paint, sharper each step: 2k JPEG, then 4k
+   * KTX2 (transcoded in a worker, block-compressed on the GPU), then on UHD
+   * displays a 16k grid of tiles, those facing the camera first. JPEG stands in
+   * if the transcoder is unavailable. The sky is decoration: it follows the Earth
+   * and may fail quietly.
+   */
+  private loadImagery(load: (url: string) => Promise<THREE.Texture>) {
+    const tier = textureTier();
+    const ktx2 = new KTX2Loader().setTranscoderPath('/basis/').detectSupport(this.renderer);
+    const loadKtx = (url: string) => ktx2.loadAsync(url).then((t) => ((t.colorSpace = THREE.SRGBColorSpace), (t.anisotropy = 8), t));
+    /** tiles sorted by how squarely they face the camera now */
+    const byView = (centre: (c: number, r: number) => THREE.Vector3, toward: THREE.Vector3) =>
+      [...ALL_TILES].sort((p, q) => centre(q[0], q[1]).dot(toward) - centre(p[0], p[1]).dot(toward));
+
+    const earth = Promise.all([loadKtx('/textures/earth-day.ktx2'), loadKtx('/textures/earth-night.ktx2')])
+      .catch(() => Promise.all([load('/textures/earth-day.jpg'), load('/textures/earth-night.jpg')]))
+      .then(([d, n]) => !this.disposed && this.earth.setTextures(d, n));
+    const water = earth
+      .then(() => loadKtx('/textures/earth-water.ktx2'))
+      .then((t) => {
+        t.colorSpace = THREE.NoColorSpace;
+        if (!this.disposed) this.earth.setWater(t);
+      })
+      .catch((err) => console.warn('Ocean mask unavailable', err));
+    const sky = water
+      .then(() => loadKtx('/textures/milkyway.ktx2').catch(() => load('/textures/milkyway.jpg')))
+      .then((t) => !this.disposed && this.sky.setMilkyWay(t))
+      .catch((err) => console.warn('Milky Way map unavailable', err));
+
+    const uhd = sky.then(async () => {
+      if (tier !== 'uhd' || this.disposed) return;
+      // the camera's direction from the Earth's centre, in the Earth-fixed frame
+      const g = gmst(this.clock.jd);
+      const up = this.camera.position.clone().normalize();
+      const earthFailed = await loadInOrder(byView(Earth.tileCentre, up.clone().applyAxisAngle(Z_AXIS, -g)), async (c, r) => {
+        const [d, n] = await Promise.all([loadKtx(`/textures/earth-day-uhd-${c}-${r}.ktx2`), loadKtx(`/textures/earth-night-uhd-${c}-${r}.ktx2`)]);
+        if (!this.disposed) this.earth.setTile(c, r, d, n);
+      });
+      // the sky behind the globe is what the camera looks at: away from itself
+      const skyFailed = await loadInOrder(byView(Sky.tileCentre, up.negate()), async (c, r) => {
+        const t = await loadKtx(`/textures/milkyway-uhd-${c}-${r}.ktx2`);
+        if (!this.disposed) this.sky.setMilkyWayTile(c, r, t);
+      });
+      if (earthFailed + skyFailed) console.warn(`UHD imagery: ${earthFailed} Earth and ${skyFailed} sky tiles unavailable; those areas stay at 4k`);
+    });
+    uhd.finally(() => ktx2.dispose());
+
+    fetch('/data/stars.bin')
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`stars: HTTP ${r.status}`))))
+      .then((buf) => !this.disposed && this.scene.add(this.sky.setStars(decodeStars(buf), this.renderer.getPixelRatio())))
+      .catch((err) => console.warn('Star catalogue unavailable', err));
+  }
+
+  /** Over the North Atlantic, framing London and New York. */
+  private homePosition(): THREE.Vector3 {
     const g = gmst(this.clock.jd);
-    const p = new THREE.Vector3(...geodeticToEcef(38, -38, 0)).normalize().applyAxisAngle(new THREE.Vector3(0, 0, 1), g);
-    this.camera.position.copy(p.multiplyScalar(24_000));
+    return new THREE.Vector3(...geodeticToEcef(38, -38, 0)).normalize().applyAxisAngle(Z_AXIS, g).multiplyScalar(this.fitDistance());
+  }
+
+  private initialView() {
+    this.camera.position.copy(this.homePosition());
     this.controls.target.set(0, 0, 0);
+    this.zoomGoal = null;
+    this.flight = null;
     this.controls.update();
+  }
+
+  /** Distance at which the Earth plus the Starlink shells fill most of the uncovered screen. */
+  private fitDistance(): number {
+    const parent = this.canvas.parentElement;
+    const w = parent?.clientWidth || window.innerWidth, h = parent?.clientHeight || window.innerHeight;
+    const free = Math.max(240, Math.min(w - this.insets.left - this.insets.right, h - this.insets.top - this.insets.bottom));
+    const radius = R_EARTH + 700;
+    // projected radius in px = (R / sqrt(d² − R²)) / tan(fov/2) · h/2
+    const k = ((0.41 * free) / (h / 2)) * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+    return THREE.MathUtils.clamp(radius * Math.sqrt(1 + 1 / (k * k)), 16_000, 60_000);
+  }
+
+  /**
+   * Drag sensitivity. Orbiting the Earth, a drag should carry the ground under
+   * the cursor along with it: a surface point (d − R) away moves R·Δθ for a
+   * rotation Δθ, so Δθ per screen angle is (d − R) / R. Far out a drag sweeps
+   * the globe; close in it pans gently over the ground. While following, the
+   * camera orbits a nearby object instead, so a constant rate feels right.
+   */
+  private rotateSpeed(): number {
+    const target = this.controls.target;
+    if (target.lengthSq() > 1000 * 1000) return 0.4;
+    const altitude = Math.max(0, this.camera.position.distanceTo(target) - R_EARTH);
+    // OrbitControls turns 2π per screen height at rotateSpeed 1; the screen spans one fov
+    const grab = (THREE.MathUtils.degToRad(this.camera.fov) / (2 * Math.PI)) * (altitude / R_EARTH);
+    return THREE.MathUtils.clamp(grab * 1.15, 0.025, 0.5);
+  }
+
+  /** Smoothly scale the camera's distance to its target. */
+  zoomBy(factor: number) {
+    if (!this.controls) return;
+    const d = this.zoomGoal ?? this.camera.position.distanceTo(this.controls.target);
+    this.zoomGoal = THREE.MathUtils.clamp(d * factor, this.controls.minDistance, this.controls.maxDistance);
+  }
+
+  /**
+   * Tell the renderer which screen margins the UI covers. The projection is
+   * shifted (not the camera) so the globe sits in the centre of the free area.
+   */
+  setViewInsets(insets: { left: number; right: number; top: number; bottom: number }) {
+    this.insets = insets;
+    this.viewShiftGoal = { x: (insets.right - insets.left) / 2, y: (insets.bottom - insets.top) / 2 };
+    if (!this.insetsSet && this.controls) {
+      // first layout: snap, and frame the globe for the space actually available
+      this.insetsSet = true;
+      this.viewShift = { ...this.viewShiftGoal };
+      this.applyViewOffset();
+      if (!this.pointer.moved) this.initialView();
+    }
+  }
+
+  private applyViewOffset() {
+    const parent = this.canvas.parentElement!;
+    const w = parent.clientWidth, h = parent.clientHeight;
+    const { x, y } = this.viewShift;
+    if (Math.abs(x) < 0.5 && Math.abs(y) < 0.5) this.camera.clearViewOffset();
+    else this.camera.setViewOffset(w, h, x, y, w, h);
+    this.camera.updateProjectionMatrix();
   }
 
   private startAnalysisWorkers() {
@@ -227,7 +385,7 @@ export class SceneController {
     }
     this.clock.rate = s.rate;
     this.clock.paused = s.paused;
-    this.clock.tick(dt);
+    this.clock.tick();
     const jd = this.clock.jd;
 
     this.pool.update(jd, this.clock.paused ? 0 : this.clock.rate);
@@ -255,34 +413,58 @@ export class SceneController {
     const g = gmst(jd);
     if (this.lastGmst !== null && layers.earthFixed && !s.follow) {
       const d = g - this.lastGmst;
-      const axis = new THREE.Vector3(0, 0, 1);
-      this.camera.position.applyAxisAngle(axis, d);
-      this.controls.target.applyAxisAngle(axis, d);
+      this.camera.position.applyAxisAngle(Z_AXIS, d);
+      this.controls.target.applyAxisAngle(Z_AXIS, d);
+      const f = this.flight;
+      if (f?.earthFixed) for (const v of [f.fromPos, f.fromTarget, f.toPos, f.toTarget]) v.applyAxisAngle(Z_AXIS, d);
     }
     this.lastGmst = g;
     this.earth.group.rotation.z = g;
     const sun = sun_position_teme(jd);
-    const sunDir = new THREE.Vector3(sun[0], sun[1], sun[2]).normalize();
-    this.earth.setSun(sunDir.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), -g));
+    const sunDir = this.sunDir.set(sun[0], sun[1], sun[2]).normalize();
+    this.earth.setSun(sunDir.clone().applyAxisAngle(Z_AXIS, -g));
 
     // follow mode: keep the camera's offset from the object fixed
-    if (s.follow && sel !== null && this.valid[sel]) {
+    if (this.flight) {
+      this.stepFlight(now);
+    } else if (s.follow && sel !== null && this.valid[sel]) {
       const t = new THREE.Vector3(this.pos[3 * sel], this.pos[3 * sel + 1], this.pos[3 * sel + 2]);
       this.camera.position.add(t.clone().sub(this.lastTarget));
       this.controls.target.copy(t);
       this.lastTarget.copy(t);
     }
+    if (this.zoomGoal !== null) {
+      const t = this.controls.target;
+      const off = this.camera.position.clone().sub(t);
+      const d = off.length();
+      const next = d + (this.zoomGoal - d) * Math.min(1, dt / 60);
+      this.camera.position.copy(t).add(off.setLength(next));
+      if (Math.abs(next - this.zoomGoal) < 0.5) this.zoomGoal = null;
+    }
+    const vs = this.viewShift, vg = this.viewShiftGoal;
+    if (vs.x !== vg.x || vs.y !== vg.y) {
+      const f = Math.min(1, dt / 90);
+      vs.x += (vg.x - vs.x) * f;
+      vs.y += (vg.y - vs.y) * f;
+      if (Math.abs(vg.x - vs.x) < 0.5 && Math.abs(vg.y - vs.y) < 0.5) this.viewShift = { ...vg };
+      this.applyViewOffset();
+    }
+    this.controls.rotateSpeed = this.rotateSpeed();
     this.controls.update();
     this.camera.updateMatrixWorld();
     const cam = this.camera.position;
+    this.earth.setCamera(cam.clone().applyAxisAngle(Z_AXIS, -g));
 
-    this.updateSatellites(cam, slot, layers, sel);
+    this.updateSatellites(cam, layers, sel);
     this.updateLinks(cam, layers);
     this.updateRoute(cam, g, now, layers, s.src, s.dst);
-    this.updateMarkers(cam, sel, s.conj.selected !== null ? s.conj.events[s.conj.selected] : undefined);
-    this.updateTrail(cam, jd, sel, layers.trail);
-    this.stars.position.copy(cam);
-    this.updateLabels(g, s.src, s.dst, layers.route);
+    const ev = s.conj.selected !== null ? s.conj.events[s.conj.selected] : undefined;
+    // a conjunction is shown only alongside one of its two objects
+    const pair = ev && sel !== null && (ev.a === sel || ev.b === sel) ? ev : undefined;
+    this.updateMarkers(cam, sel, pair);
+    this.updateOrbits(cam, jd, sel, pair);
+    this.sky.update(cam, sunDir);
+    this.updateLabels(g, s.src, s.dst, layers.route || layers.cones);
 
     if (!this.analysisBusy && now - this.lastAnalysis > 250) this.requestAnalysis(jd, s.src, s.dst, layers.coverage || s.tab === 'coverage');
     if (now - this.lastStats > 200) this.publish(now, jd, sel);
@@ -292,7 +474,7 @@ export class SceneController {
     this.frames++;
   };
 
-  private updateSatellites(cam: THREE.Vector3, slot: number, layers: Layers, sel: number | null) {
+  private updateSatellites(cam: THREE.Vector3, layers: Layers, sel: number | null) {
     const n = this.n;
     const off = this.sats.offsets.array as Float32Array;
     const pos = this.pos;
@@ -303,7 +485,6 @@ export class SceneController {
     }
     if (this.colorsDirty) {
       const show = [layers.starlink, layers.debris, layers.payload];
-      const illum = slot >= 0 ? this.pool.kf.illum.subarray(slot * n, (slot + 1) * n) : null;
       const group = this.catalog.group;
       let visible = 0;
       for (let i = 0; i < n; i++) {
@@ -315,8 +496,7 @@ export class SceneController {
           continue;
         }
         visible++;
-        const lit = layers.eclipse && illum ? 0.22 + 0.78 * (illum[i] / 255) : 1;
-        this.sats.setColor(i, GROUP_COLORS[gi], GROUP_SIZE[gi], 1.5 * lit);
+        this.sats.setColor(i, GROUP_COLORS[gi], GROUP_SIZE[gi], GROUP_GAIN[gi]);
       }
       if (sel !== null) this.sats.setColor(sel, WHITE, 7, 3);
       this.visibleCount = visible;
@@ -429,44 +609,30 @@ export class SceneController {
     this.markers.commit(k, cam);
   }
 
-  private updateTrail(cam: THREE.Vector3, jd: number, sel: number | null, on: boolean) {
-    if (sel === null || !on) {
-      this.trail.object.visible = false;
-      this.trailFor = -1;
-      return;
-    }
+  /**
+   * The selected object's orbit, always: where it has been and where it is going
+   * is the context a single dot can't give. With a conjunction selected, the
+   * other object's orbit too, so the crossing geometry is visible.
+   */
+  private updateOrbits(cam: THREE.Vector3, jd: number, sel: number | null, pair?: { a: number; b: number }) {
+    const objects = [sel, pair ? (pair.a === sel ? pair.b : pair.a) : null];
     const now = performance.now();
-    if (this.trailFor !== sel || now - this.trailAt > 500) {
-      const info = this.prop.info(sel);
-      const periodDays = Math.min(info[3], 1440) / 1440;
-      const pts = this.prop.track(sel, jd - periodDays / 2, jd + periodDays / 2, TRAIL_SAMPLES);
-      this.trailPoints.set(pts);
-      if (this.trailFor !== sel) {
-        const c = this.trail.colorArray;
-        for (let k = 0; k < TRAIL_SAMPLES - 1; k++) {
-          const w = 1 - Math.abs(k / (TRAIL_SAMPLES - 2) - 0.5) * 1.6; // brightest at the object
-          for (let v = 0; v < 6; v++) c[6 * k + v] = Math.max(0.08, w);
-        }
-        this.trail.commit(0, cam, true);
+    objects.forEach((i, k) => {
+      const orbit = this.orbits[k];
+      const tr = this.tracks[k];
+      if (i === null || !this.valid[i]) {
+        orbit.hide();
+        tr.for = -1;
+        return;
       }
-      this.trailFor = sel;
-      this.trailAt = now;
-    }
-    const p = this.trailPoints;
-    const a = this.trail.array;
-    let k = 0;
-    for (let s = 0; s < TRAIL_SAMPLES - 1; s++) {
-      if (Number.isNaN(p[3 * s]) || Number.isNaN(p[3 * s + 3])) continue;
-      a[6 * k] = p[3 * s] - cam.x;
-      a[6 * k + 1] = p[3 * s + 1] - cam.y;
-      a[6 * k + 2] = p[3 * s + 2] - cam.z;
-      a[6 * k + 3] = p[3 * s + 3] - cam.x;
-      a[6 * k + 4] = p[3 * s + 4] - cam.y;
-      a[6 * k + 5] = p[3 * s + 5] - cam.z;
-      k++;
-    }
-    this.trail.object.visible = true;
-    this.trail.commit(k, cam);
+      if (tr.for !== i || now - tr.at > 500) {
+        const periodDays = Math.min(this.prop.info(i)[3], 1440) / 1440;
+        tr.pts.set(this.prop.track(i, jd - periodDays / 2, jd + periodDays / 2, ORBIT_SAMPLES));
+        tr.for = i;
+        tr.at = now;
+      }
+      orbit.update(tr.pts, ORBIT_SAMPLES, k === 0 ? ORBIT_COLOR : PARTNER_ORBIT_COLOR, cam);
+    });
   }
 
   // ------------------------------------------------------------ labels & picking
@@ -499,6 +665,7 @@ export class SceneController {
     return { x: (v.x * 0.5 + 0.5) * w, y: (-v.y * 0.5 + 0.5) * h, ok: v.z < 1 && Math.abs(v.x) < 1.2 && Math.abs(v.y) < 1.2 };
   }
 
+  /** Names of the two ground terminals, shown while the route or their visibility cones are. */
   private updateLabels(g: number, src: string, dst: string, routeOn: boolean) {
     const place = (key: string, text: string, p: THREE.Vector3, show: boolean) => {
       const el = this.label(key, text);
@@ -542,7 +709,10 @@ export class SceneController {
     const c = this.canvas;
     c.addEventListener('pointerdown', (e) => {
       this.pointer = { ...this.pointer, down: true, x: e.clientX, y: e.clientY, moved: false };
+      this.zoomGoal = null;
+      this.cancelFlight();
     });
+    c.addEventListener('wheel', () => this.cancelFlight(), { passive: true });
     c.addEventListener('pointermove', (e) => {
       if (this.pointer.down && Math.hypot(e.clientX - this.pointer.x, e.clientY - this.pointer.y) > 4) this.pointer.moved = true;
       const now = performance.now();
@@ -570,34 +740,111 @@ export class SceneController {
     c.addEventListener('pointerleave', () => useStore.getState().set({ hover: null }));
   }
 
+  /**
+   * Select an object. While following, picking another object follows that one
+   * instead; clearing the selection zooms back out (see stopFollowing).
+   */
   selectObject(i: number | null, follow = false) {
     const s = useStore.getState();
+    const wasFollowing = s.follow;
+    this.leaving = s.selected;
+    // a highlighted conjunction belongs to its two objects: clearing the selection,
+    // or picking something else, lets it go too
+    const ev = s.conj.selected !== null ? s.conj.events[s.conj.selected] : undefined;
+    if (ev && (i === null || (i !== ev.a && i !== ev.b))) s.set({ conj: { ...s.conj, selected: null } });
     s.select(i);
     if (i !== null && this.valid[i]) {
       this.lastTarget.set(this.pos[3 * i], this.pos[3 * i + 1], this.pos[3 * i + 2]);
-      if (follow) this.flyTo(i);
+      if (follow || wasFollowing) this.flyTo(i);
     }
     this.colorsDirty = true;
   }
+  /** the object whose follow just ended, so the zoom-out can keep it centred */
+  private leaving: number | null = null;
 
-  /** Chase camera: behind the object along its track and a little above, so the horizon is in view. */
-  flyTo(i: number) {
-    if (!this.valid[i]) return;
+  /** Chase position: behind the object along its track and a little above, so the horizon is in view. */
+  private chase(i: number, outPos: THREE.Vector3, outTarget: THREE.Vector3) {
     const st = this.prop.state_at(i, this.clock.jd);
-    const p = new THREE.Vector3(this.pos[3 * i], this.pos[3 * i + 1], this.pos[3 * i + 2]);
-    const up = p.clone().normalize();
-    const back = st.length ? new THREE.Vector3(st[3], st[4], st[5]).normalize().negate() : new THREE.Vector3(0, 0, 1);
-    this.camera.position.copy(p.clone().add(back.multiplyScalar(320)).add(up.multiplyScalar(110)));
-    this.controls.target.copy(p);
-    this.lastTarget.copy(p);
-    this.controls.minDistance = 20;
-    useStore.getState().set({ follow: true });
+    outTarget.set(this.pos[3 * i], this.pos[3 * i + 1], this.pos[3 * i + 2]);
+    const up = outTarget.clone().normalize();
+    const back = st.length ? new THREE.Vector3(st[3], st[4], st[5]).normalize().negate() : Z_AXIS.clone();
+    outPos.copy(outTarget).addScaledVector(back, 320).addScaledVector(up, 110);
   }
 
+  /** Fly to an object and ride along with it. */
+  flyTo(i: number) {
+    if (!this.valid[i]) return;
+    const toPos = new THREE.Vector3(), toTarget = new THREE.Vector3();
+    this.chase(i, toPos, toTarget);
+    useStore.getState().set({ follow: true });
+    this.startFlight(toPos, toTarget, 1700, {
+      track: () => this.valid[i] && this.chase(i, toPos, toTarget),
+      done: () => this.lastTarget.copy(this.controls.target),
+    });
+  }
+
+  /** Leave follow mode by zooming back out, with the object still in the middle of the view. */
+  stopFollowing() {
+    if (useStore.getState().follow) useStore.getState().set({ follow: false }); // the store subscription flies out
+  }
+
+  private flyOut(from: number | null) {
+    const p = from !== null && this.valid[from] ? new THREE.Vector3(this.pos[3 * from], this.pos[3 * from + 1], this.pos[3 * from + 2]) : this.camera.position.clone();
+    // a GEO object sits outside the usual framing distance: back off far enough to keep it in front
+    const dist = Math.max(this.fitDistance(), p.length() * 1.6);
+    this.startFlight(p.clone().setLength(dist), new THREE.Vector3(), 1500, { earthFixed: true });
+  }
+
+  /** Back to the opening view, smoothly. */
   resetView() {
-    this.controls.minDistance = R_EARTH + 400;
+    this.resetting = true;
     useStore.getState().set({ follow: false });
-    this.initialView();
+    this.resetting = false;
+    this.startFlight(this.homePosition(), new THREE.Vector3(), 1500, { earthFixed: true });
+  }
+  private resetting = false;
+
+  private startFlight(toPos: THREE.Vector3, toTarget: THREE.Vector3, dur: number, opts: { track?: () => void; done?: () => void; earthFixed?: boolean } = {}) {
+    this.zoomGoal = null;
+    this.controls.minDistance = 20; // the target moves between the object and the Earth's centre mid-flight
+    this.flight = {
+      t0: performance.now(),
+      dur,
+      fromPos: this.camera.position.clone(),
+      fromTarget: this.controls.target.clone(),
+      toPos,
+      toTarget,
+      track: opts.track,
+      done: opts.done,
+      earthFixed: opts.earthFixed ?? false,
+    };
+  }
+
+  private stepFlight(now: number) {
+    const f = this.flight!;
+    f.track?.();
+    const u = Math.min(1, (now - f.t0) / f.dur);
+    const k = easeInOutCubic(u);
+    // direction: great-circle slerp about the Earth's centre; distance: geometric
+    // (log-linear) so the long zoom feels even and never dips inside the planet
+    const r0 = f.fromPos.length(), r1 = f.toPos.length();
+    const a = f.fromPos.clone().divideScalar(r0), b = f.toPos.clone().divideScalar(r1);
+    const q = new THREE.Quaternion().slerpQuaternions(new THREE.Quaternion(), new THREE.Quaternion().setFromUnitVectors(a, b), k);
+    this.camera.position.copy(a.applyQuaternion(q).multiplyScalar(Math.exp(Math.log(r0) + (Math.log(r1) - Math.log(r0)) * k)));
+    this.controls.target.lerpVectors(f.fromTarget, f.toTarget, k);
+    if (u >= 1) {
+      this.flight = null;
+      if (!useStore.getState().follow) this.controls.minDistance = R_EARTH + 400;
+      f.done?.();
+    }
+  }
+
+  /** User input takes over from an overview flight; a fly-in to follow runs to the end. */
+  private cancelFlight() {
+    const f = this.flight;
+    if (!f || useStore.getState().follow) return;
+    this.flight = null;
+    this.controls.minDistance = Math.min(R_EARTH + 400, this.camera.position.distanceTo(this.controls.target));
   }
 
   private bindStore() {
@@ -606,10 +853,12 @@ export class SceneController {
         if (s.layers !== prev.layers) {
           this.colorsDirty = true;
           this.coverage.mesh.visible = s.layers.coverage;
-          this.cones.visible = s.layers.cones && s.layers.route;
+          this.cones.visible = s.layers.cones;
+          this.sky.setVisible(s.layers.sky);
         }
         if (s.selected !== prev.selected) this.colorsDirty = true;
-        if (s.follow !== prev.follow && !s.follow) this.controls.minDistance = R_EARTH + 400;
+        // leaving follow mode, however it happens (Esc, the button, clearing the selection): zoom back out
+        if (prev.follow && !s.follow && !this.resetting) this.flyOut(prev.selected ?? this.leaving);
         if (s.src !== prev.src || s.dst !== prev.dst) {
           this.routePath = null;
           s.set({ latency: [], route: null });
@@ -619,8 +868,9 @@ export class SceneController {
     );
     const s = useStore.getState();
     this.rebuildCones(s.src, s.dst);
-    this.cones.visible = s.layers.cones && s.layers.route;
+    this.cones.visible = s.layers.cones;
     this.coverage.mesh.visible = s.layers.coverage;
+    this.sky.setVisible(s.layers.sky);
   }
 
   private rebuildCones(src: string, dst: string) {
@@ -725,7 +975,7 @@ export class SceneController {
     const id = ++this.screenId;
     const jd0 = this.clock.jd;
     const s = useStore.getState();
-    s.set({ conj: { ...s.conj, status: 'running', progress: 0, elapsedMs: 0, total: 0, events: [], stats: null, hours, thresholdKm, startJd: jd0, selected: null } });
+    s.set({ conj: { ...s.conj, status: 'running', progress: 0, elapsedMs: 0, total: 0, events: [], bands: [0, 0, 0], stats: null, hours, thresholdKm, startJd: jd0, selected: null } });
     this.conj.postMessage({ type: 'screen', id, jd0, hours, stepS: 60, thresholdKm });
   }
 
@@ -748,6 +998,7 @@ export class SceneController {
           elapsedMs: m.elapsedMs as number,
           total: m.total as number,
           events: m.events as never,
+          bands: m.bands as never,
           stats: m.stats as never,
         },
       });
@@ -818,7 +1069,7 @@ export class SceneController {
     const w = parent.clientWidth, h = parent.clientHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
+    this.applyViewOffset();
   }
 
   dispose() {
@@ -834,29 +1085,4 @@ export class SceneController {
     this.renderer?.dispose();
     if (current === this) current = null;
   }
-}
-
-function makeStars(): THREE.Points {
-  // deterministic sky: 5,000 stars with a steep magnitude distribution
-  let seed = 7;
-  const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-  const n = 5000;
-  const pos = new Float32Array(n * 3);
-  const col = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) {
-    const u = rnd() * 2 - 1, th = rnd() * Math.PI * 2, r = 1.5e6;
-    const s = Math.sqrt(1 - u * u);
-    pos.set([r * s * Math.cos(th), r * s * Math.sin(th), r * u], 3 * i);
-    const b = 0.08 + Math.pow(rnd(), 6) * 0.7;
-    const warm = rnd();
-    col.set([b * (0.85 + 0.15 * warm), b * 0.9, b * (1.05 - 0.2 * warm)], 3 * i);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const m = new THREE.PointsNodeMaterial({ vertexColors: true, depthWrite: false, sizeAttenuation: false });
-  const p = new THREE.Points(g, m);
-  p.frustumCulled = false;
-  p.renderOrder = -1;
-  return p;
 }

@@ -27,6 +27,13 @@ let current = 0;
 
 const yieldToEvents = () => new Promise<void>((r) => setTimeout(r, 0));
 
+/** Encounters under 1 km, 1–2 km and 2 km or more, across every event (not just the decoded ones). */
+function missBands(flat: Float64Array): [number, number, number] {
+  const bands: [number, number, number] = [0, 0, 0];
+  for (let k = 3; k < flat.length; k += 5) bands[flat[k] < 1 ? 0 : flat[k] < 2 ? 1 : 2]++;
+  return bands;
+}
+
 function decodeEvents(flat: Float64Array, limit: number): ConjunctionEvent[] {
   const out: ConjunctionEvent[] = [];
   for (let k = 0; k < flat.length && out.length < limit; k += 5) {
@@ -56,6 +63,7 @@ async function screen(req: ScreenRequest) {
         elapsedMs: now - t0,
         total: flat.length / 5,
         events: decodeEvents(flat, 250),
+        bands: missBands(flat),
         stats: { steps: s[0], candidatePairs: s[1], refined: s[2], formationPairs: s[3] },
       });
     }

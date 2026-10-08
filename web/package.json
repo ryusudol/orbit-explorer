@@ -10,11 +10,12 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "plots": "node scripts/plots.mjs",
-    "textures": "node scripts/textures.mjs"
+    "textures": "node scripts/textures.mjs",
+    "sky": "node scripts/sky.mjs"
   },
   "dependencies": {
-    "@fontsource-variable/inter-tight": "^5.3.0",
-    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@fontsource/barlow": "^5.3.0",
     "d3-array": "^3.2.4",
     "d3-axis": "^3.0.0",
     "d3-geo": "^3.1.1",

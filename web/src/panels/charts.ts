@@ -12,21 +12,56 @@ import { select, type Selection } from 'd3-selection';
 import { area, line } from 'd3-shape';
 import { utcFormat } from 'd3-time-format';
 import { formatUtc } from '../sim/time';
+import { GROUP_HEX as SERIES } from '../palette';
 import type { LatencySample } from '../state/store';
 
-export const INK = { text: '#e8edf3', text2: '#a9b2bf', muted: '#778190', grid: '#1f242c', axis: '#353b44', surface: '#0c0f14' };
-export const SERIES = ['#3987e5', '#d95926', '#199e70'];
-const SERIOUS = '#ec835a';
+export const INK = { text: '#f0f0fa', text2: 'rgba(240,240,250,0.68)', muted: 'rgba(240,240,250,0.44)', grid: 'rgba(240,240,250,0.07)', axis: 'rgba(240,240,250,0.22)', surface: '#000000' };
+const SERIOUS = '#ff5a5a';
+/**
+ * Single-quantity lines are monochrome, told apart by stroke style rather than
+ * hue: the measured series solid white, the reference series dotted grey. Hue
+ * is kept for the object groups, where it encodes data shared with the globe.
+ */
+export const LINE = { primary: '#f0f0fa', reference: 'rgba(240,240,250,0.55)' };
 
 type Svg = Selection<SVGSVGElement, unknown, null, undefined>;
 type G = Selection<SVGGElement, unknown, null, undefined>;
 
 interface Frame<D> {
   svg: Svg;
+  /** unique per chart, for gradient ids */
+  uid: string;
   g: Record<string, G>;
   tip: Selection<HTMLDivElement, unknown, null, undefined>;
   data: D;
   width: number;
+}
+
+let chartIds = 0;
+
+/** A vertical fade from `color` to transparent, defined once per chart. */
+function wash(f: Frame<unknown>, color: string, opacity: number): string {
+  const id = `${f.uid}-wash`;
+  if (f.svg.select(`#${id}`).empty()) {
+    const lg = f.svg.insert('defs', ':first-child').append('linearGradient').attr('id', id).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+    lg.append('stop').attr('offset', 0).attr('stop-color', color).attr('stop-opacity', opacity);
+    lg.append('stop').attr('offset', 1).attr('stop-color', color).attr('stop-opacity', 0);
+  }
+  return `url(#${id})`;
+}
+
+/** Drop ticks that would sit closer than `minPx` to the previous kept one, so labels never collide. */
+function spaced<T>(ticks: T[], px: (t: T) => number, minPx: number): T[] {
+  const out: T[] = [];
+  let last = -Infinity;
+  for (const t of ticks) {
+    const p = px(t);
+    if (p - last >= minPx) {
+      out.push(t);
+      last = p;
+    }
+  }
+  return out;
 }
 
 function frame<D>(root: HTMLDivElement, height: number, layers: string[], data: D, width: number): Frame<D> {
@@ -36,7 +71,7 @@ function frame<D>(root: HTMLDivElement, height: number, layers: string[], data: 
     const g: Record<string, G> = {};
     for (const name of layers) g[name] = svg.append('g').attr('class', name) as unknown as G;
     const tip = select(root).append('div').attr('class', 'tooltip').style('display', 'none') as unknown as Frame<D>['tip'];
-    r.__frame = { svg, g, tip, data, width };
+    r.__frame = { svg, uid: `c${++chartIds}`, g, tip, data, width };
   }
   const f = r.__frame;
   f.data = data;
@@ -85,7 +120,7 @@ export interface LatencyData {
 export function drawLatency(root: HTMLDivElement, data: LatencyData, width: number) {
   const H = 150;
   const M = { t: 10, r: 62, b: 22, l: 30 };
-  const f = frame(root, H, ['grid', 'axes', 'fibre', 'sat', 'labels', 'cross', 'hit'], data, width);
+  const f = frame(root, H, ['grid', 'axes', 'fibre', 'area', 'sat', 'labels', 'cross', 'hit'], data, width);
   const pts = data.samples.filter((s) => s.sat !== null) as { t: number; sat: number }[];
   const t0 = data.samples.length ? data.samples[0].t : 0;
   const t1 = data.samples.length ? data.samples[data.samples.length - 1].t : 1;
@@ -95,7 +130,12 @@ export function drawLatency(root: HTMLDivElement, data: LatencyData, width: numb
 
   gridY(f.g.grid, y, y.ticks(4), M.l, width - M.r);
   f.g.axes.selectAll('*').remove();
-  const ax = f.g.axes.append('g').attr('transform', `translate(0,${H - M.b})`).call(axisBottom(x).ticks(4).tickFormat((d) => utcFormat(t1 - t0 < 300_000 ? '%H:%M:%S' : '%H:%M')(d as Date))) as unknown as G;
+  const timeFmt = utcFormat(t1 - t0 < 300_000 ? '%H:%M:%S' : '%H:%M');
+  const timeTicks = spaced(x.ticks(Math.max(2, Math.floor((width - M.l - M.r) / 90))), (d) => x(d), 72);
+  const ax = f.g.axes
+    .append('g')
+    .attr('transform', `translate(0,${H - M.b})`)
+    .call(axisBottom(x).tickValues(timeTicks).tickFormat((d) => timeFmt(d as Date))) as unknown as G;
   styleAxis(ax);
   const ay = f.g.axes.append('g').attr('transform', `translate(${M.l - 6},0)`).call(axisLeft(y).ticks(4)) as unknown as G;
   styleAxis(ay);
@@ -103,13 +143,23 @@ export function drawLatency(root: HTMLDivElement, data: LatencyData, width: numb
   const ln = line<{ t: number; sat: number }>()
     .x((d) => x(new Date(d.t)))
     .y((d) => y(d.sat));
+  const ar = area<{ t: number; sat: number }>()
+    .x((d) => x(new Date(d.t)))
+    .y0(y(0))
+    .y1((d) => y(d.sat));
+  f.g.area
+    .selectAll('path')
+    .data([pts])
+    .join('path')
+    .attr('d', (d) => ar(d) ?? '')
+    .attr('fill', wash(f as Frame<unknown>, LINE.primary, 0.1));
   f.g.sat
     .selectAll('path')
     .data([pts])
     .join('path')
     .attr('d', (d) => ln(d) ?? '')
     .attr('fill', 'none')
-    .attr('stroke', SERIES[0])
+    .attr('stroke', LINE.primary)
     .attr('stroke-width', 2)
     .attr('stroke-linejoin', 'round')
     .attr('stroke-linecap', 'round');
@@ -121,8 +171,9 @@ export function drawLatency(root: HTMLDivElement, data: LatencyData, width: numb
     .attr('x2', width - M.r)
     .attr('y1', (d) => y(d))
     .attr('y2', (d) => y(d))
-    .attr('stroke', SERIES[1])
+    .attr('stroke', LINE.reference)
     .attr('stroke-width', 2)
+    .attr('stroke-dasharray', '1 5')
     .attr('stroke-linecap', 'round');
 
   // direct labels at the right end, in text ink
@@ -137,8 +188,8 @@ export function drawLatency(root: HTMLDivElement, data: LatencyData, width: numb
     .attr('x', width - M.r + 8)
     .attr('y', (d) => d.y + 4)
     .attr('fill', INK.text)
-    .style('font-family', 'var(--mono)')
-    .style('font-size', '11px')
+    .style('font-weight', '600')
+    .style('font-size', '11.5px')
     .text((d) => d.text);
 
   const cross = f.g.cross;
@@ -164,8 +215,8 @@ export function drawLatency(root: HTMLDivElement, data: LatencyData, width: numb
       cross
         .selectAll('circle')
         .data([
-          { v: s.sat, c: SERIES[0] },
-          ...(d.fibreMs !== null ? [{ v: d.fibreMs, c: SERIES[1] }] : []),
+          { v: s.sat, c: LINE.primary },
+          ...(d.fibreMs !== null ? [{ v: d.fibreMs, c: LINE.reference }] : []),
         ])
         .join('circle')
         .attr('cx', px)
@@ -175,8 +226,8 @@ export function drawLatency(root: HTMLDivElement, data: LatencyData, width: numb
         .attr('stroke', INK.surface)
         .attr('stroke-width', 2);
       tooltip(f.tip, px, y(s.sat), formatUtc(s.t) + ' UTC', [
-        { color: SERIES[0], value: `${s.sat.toFixed(2)} ms`, label: 'laser path' },
-        ...(d.fibreMs !== null ? [{ color: SERIES[1], value: `${d.fibreMs.toFixed(2)} ms`, label: 'fibre, great circle' }] : []),
+        { color: LINE.primary, value: `${s.sat.toFixed(2)} ms`, label: 'laser path' },
+        ...(d.fibreMs !== null ? [{ color: LINE.reference, value: `${d.fibreMs.toFixed(2)} ms`, label: 'fibre, great circle' }] : []),
       ]);
     })
     .on('pointerleave', () => {
@@ -206,7 +257,7 @@ export function drawRange(root: HTMLDivElement, data: RangeData, width: number) 
   const ticks = y.ticks(4).filter((t) => [1, 10, 100, 1000, 10000, 0.1, 0.01].some((k) => Math.abs(t - k) < 1e-9));
   gridY(f.g.grid, y, ticks, M.l, width - M.r);
   f.g.axes.selectAll('*').remove();
-  const ax = f.g.axes.append('g').attr('transform', `translate(0,${H - M.b})`).call(axisBottom(x).ticks(6).tickFormat((d) => `${+d > 0 ? '+' : ''}${d} min`)) as unknown as G;
+  const ax = f.g.axes.append('g').attr('transform', `translate(0,${H - M.b})`).call(axisBottom(x).tickValues(spaced(x.ticks(6), x, 60)).tickFormat((d) => `${+d > 0 ? '+' : +d < 0 ? '−' : ''}${Math.abs(+d)} min`)) as unknown as G;
   styleAxis(ax);
   const ay = f.g.axes
     .append('g')
@@ -222,7 +273,8 @@ export function drawRange(root: HTMLDivElement, data: RangeData, width: number) 
     .attr('x2', width - M.r)
     .attr('y1', (d) => y(d))
     .attr('y2', (d) => y(d))
-    .attr('stroke', INK.axis);
+    .attr('stroke', INK.axis)
+    .attr('stroke-dasharray', '3 4');
   f.g.thr
     .selectAll('text')
     .data([data.thresholdKm])
@@ -243,7 +295,7 @@ export function drawRange(root: HTMLDivElement, data: RangeData, width: number) 
     .join('path')
     .attr('d', (d) => ln(d) ?? '')
     .attr('fill', 'none')
-    .attr('stroke', SERIES[0])
+    .attr('stroke', LINE.primary)
     .attr('stroke-width', 2)
     .attr('stroke-linejoin', 'round');
 
@@ -264,8 +316,8 @@ export function drawRange(root: HTMLDivElement, data: RangeData, width: number) 
     .attr('x', x(0) + 9)
     .attr('y', (d) => y(d) + 4)
     .attr('fill', INK.text)
-    .style('font-family', 'var(--mono)')
-    .style('font-size', '11px')
+    .style('font-weight', '600')
+    .style('font-size', '11.5px')
     .text((d) => `${d < 1 ? (d * 1000).toFixed(0) + ' m' : d.toFixed(2) + ' km'} at TCA`);
 
   const cross = f.g.cross;
@@ -284,7 +336,7 @@ export function drawRange(root: HTMLDivElement, data: RangeData, width: number) 
       const i = Math.min(p.length - 1, bisector((q: { m: number }) => q.m).center(p, x.invert(ev.offsetX)));
       const q = p[i];
       cross.selectAll('line').data([0]).join('line').attr('x1', x(q.m)).attr('x2', x(q.m)).attr('y1', M.t).attr('y2', H - M.b).attr('stroke', INK.axis);
-      cross.selectAll('circle').data([q]).join('circle').attr('cx', x(q.m)).attr('cy', y(Math.max(lo, q.v))).attr('r', 4).attr('fill', SERIES[0]).attr('stroke', INK.surface).attr('stroke-width', 2);
+      cross.selectAll('circle').data([q]).join('circle').attr('cx', x(q.m)).attr('cy', y(Math.max(lo, q.v))).attr('r', 4).attr('fill', LINE.primary).attr('stroke', INK.surface).attr('stroke-width', 2);
       tooltip(f.tip, x(q.m), y(Math.max(lo, q.v)), `TCA ${q.m >= 0 ? '+' : ''}${q.m.toFixed(1)} min`, [{ value: q.v < 10 ? `${q.v.toFixed(3)} km` : `${q.v.toFixed(0)} km`, label: 'separation' }]);
     })
     .on('pointerleave', () => {
@@ -327,14 +379,14 @@ export function drawCoverage(root: HTMLDivElement, data: CoverageData, width: nu
   const ln = line<{ lat: number; v: number }>()
     .x((d) => x(d.lat))
     .y((d) => y(d.v));
-  f.g.area.selectAll('path').data([pts]).join('path').attr('d', (d) => ar(d) ?? '').attr('fill', SERIES[0]).attr('fill-opacity', 0.1);
+  f.g.area.selectAll('path').data([pts]).join('path').attr('d', (d) => ar(d) ?? '').attr('fill', wash(f as Frame<unknown>, LINE.primary, 0.16));
   f.g.line
     .selectAll('path')
     .data([pts])
     .join('path')
     .attr('d', (d) => ln(d) ?? '')
     .attr('fill', 'none')
-    .attr('stroke', SERIES[0])
+    .attr('stroke', LINE.primary)
     .attr('stroke-width', 2)
     .attr('stroke-linejoin', 'round');
 
@@ -347,8 +399,8 @@ export function drawCoverage(root: HTMLDivElement, data: CoverageData, width: nu
     .attr('y', (d) => y(d.v) - 7)
     .attr('text-anchor', 'middle')
     .attr('fill', INK.text)
-    .style('font-family', 'var(--mono)')
-    .style('font-size', '11px')
+    .style('font-weight', '600')
+    .style('font-size', '11.5px')
     .text((d) => `${d.v.toFixed(1)} at ${Math.abs(d.lat).toFixed(0)}°${d.lat >= 0 ? 'N' : 'S'}`);
 
   const cross = f.g.cross;
@@ -369,7 +421,7 @@ export function drawCoverage(root: HTMLDivElement, data: CoverageData, width: nu
       const la = -90 + (i + 0.5) * (180 / nn);
       const v = d.byLat[i];
       cross.selectAll('line').data([0]).join('line').attr('x1', x(la)).attr('x2', x(la)).attr('y1', M.t).attr('y2', H - M.b).attr('stroke', INK.axis);
-      cross.selectAll('circle').data([0]).join('circle').attr('cx', x(la)).attr('cy', y(v)).attr('r', 4).attr('fill', SERIES[0]).attr('stroke', INK.surface).attr('stroke-width', 2);
+      cross.selectAll('circle').data([0]).join('circle').attr('cx', x(la)).attr('cy', y(v)).attr('r', 4).attr('fill', LINE.primary).attr('stroke', INK.surface).attr('stroke-width', 2);
       tooltip(f.tip, x(la), y(v), `${Math.abs(la).toFixed(0)}°${la >= 0 ? 'N' : 'S'}`, [{ value: v.toFixed(1), label: 'satellites above 25°, mean' }]);
     })
     .on('pointerleave', () => {
@@ -427,7 +479,7 @@ export function drawAltitude(root: HTMLDivElement, data: AltitudeData, width: nu
       .attr('x', M.l)
       .attr('y', r.top - 4)
       .attr('fill', INK.text2)
-      .style('font-size', '11px')
+      .style('font-size', '11.5px')
       .text(`${GROUP_LABELS[r.g]} · peak ${r.peak.toLocaleString()}`);
     const ay = f.g.axes.append('g').attr('transform', `translate(${M.l - 6},0)`).call(axisLeft(r.y).tickValues([r.peak]).tickFormat((d) => (+d >= 10000 ? `${Math.round(+d / 1000)}k` : (+d).toLocaleString()))) as unknown as G;
     styleAxis(ay);
@@ -454,7 +506,15 @@ export function drawAltitude(root: HTMLDivElement, data: AltitudeData, width: nu
     const rr = Math.min(2, s.w / 2, h);
     return `M${s.x},${s.y0}V${s.y1 + rr}Q${s.x},${s.y1} ${s.x + rr},${s.y1}H${s.x + s.w - rr}Q${s.x + s.w},${s.y1} ${s.x + s.w},${s.y1 + rr}V${s.y0}Z`;
   };
-  f.g.bars.selectAll('path').data(bars).join('path').attr('d', path).attr('fill', (s) => s.c);
+  // a faint ink edge keeps Tol's dark blue legible against the black panel
+  f.g.bars
+    .selectAll('path')
+    .data(bars)
+    .join('path')
+    .attr('d', path)
+    .attr('fill', (s) => s.c)
+    .attr('stroke', 'rgba(240,240,250,0.3)')
+    .attr('stroke-width', 0.75);
 
   const geo = x(35786);
   f.g.annot.append('line').attr('x1', geo).attr('x2', geo).attr('y1', M.t).attr('y2', H - M.b).attr('stroke', INK.grid);
