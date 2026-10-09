@@ -4,6 +4,7 @@
 import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { highp } from './precision';
 
 /** Up to `capacity` independent segments, 1 px, additive. */
 export class SegmentLayer {
@@ -114,6 +115,7 @@ export class OrbitPath {
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
+    mat.contextNode = highp(); // drawn right through a followed object's model
     this.object = new LineSegments2(this.geometry, mat);
     this.object.frustumCulled = false;
     this.object.renderOrder = 2;

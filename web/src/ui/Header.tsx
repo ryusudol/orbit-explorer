@@ -1,15 +1,8 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { useStore, type Tab } from '../state/store';
+import { useStore } from '../state/store';
 import { Kbd } from './common';
-import { Icon, Logo, type IconName } from './icons';
-
-export const MODES: { id: Tab; label: string; icon: IconName; key: string }[] = [
-  { id: 'explore', label: 'Explore', icon: 'explore', key: '1' },
-  { id: 'route', label: 'Routing', icon: 'route', key: '2' },
-  { id: 'conj', label: 'Conjunctions', icon: 'radar', key: '3' },
-  { id: 'coverage', label: 'Coverage', icon: 'globe', key: '4' },
-  { id: 'catalog', label: 'Catalogue', icon: 'layers', key: '5' },
-];
+import { Icon, Logo } from './icons';
+import { MODES_BY_WORLD, WorldSwitch } from './Worlds';
 
 export function Header({ onSearch, onLayers, layersOpen, onHelp }: { onSearch: () => void; onLayers: () => void; layersOpen: boolean; onHelp: () => void }) {
   const perf = useStore((s) => s.perf);
@@ -22,11 +15,8 @@ export function Header({ onSearch, onLayers, layersOpen, onHelp }: { onSearch: (
         <Logo size={26} />
         <span className="brand-name">Orbit Explorer</span>
       </div>
-      <button className="glass search-trigger" onClick={onSearch} aria-label="Search satellites and actions">
-        <Icon name="search" size={15} />
-        <span className="search-trigger-text">Search</span>
-        <Kbd>⌘K</Kbd>
-      </button>
+      {/* on phones, where the headline doesn't fit, the worlds sit in the header */}
+      <WorldSwitch />
 
       <ModeNav />
 
@@ -39,6 +29,11 @@ export function Header({ onSearch, onLayers, layersOpen, onHelp }: { onSearch: (
           <span className={`pulse${live ? '' : ' idle'}`} />
           <span className="status-fps">{Math.round(perf.fps)} fps</span>
           <span className="status-backend">{perf.backend}</span>
+        </button>
+        <button className="glass search-bar" onClick={onSearch} aria-label="Search satellites and actions" title="Search (⌘K)">
+          <Icon name="search" size={14} />
+          <span className="search-bar-text">Search</span>
+          <Kbd>⌘K</Kbd>
         </button>
         <button className={`glass pill-btn${layersOpen ? ' active' : ''}`} onClick={onLayers} aria-expanded={layersOpen} aria-haspopup="dialog" title="Layers and view (L)">
           <Icon name="sliders" size={16} />
@@ -55,10 +50,12 @@ export function Header({ onSearch, onLayers, layersOpen, onHelp }: { onSearch: (
 /** Segmented mode switcher; the highlight slides between modes. */
 function ModeNav() {
   const tab = useStore((s) => s.tab);
+  const body = useStore((s) => s.body);
   const set = useStore((s) => s.set);
   const listRef = useRef<HTMLDivElement>(null);
   const [indicator, setIndicator] = useState<{ x: number; w: number } | null>(null);
-  const active = MODES.some((m) => m.id === tab) ? tab : null;
+  const modes = MODES_BY_WORLD[body];
+  const active = modes.some((m) => m.id === tab) ? tab : null;
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -69,13 +66,13 @@ function ModeNav() {
     const ro = new ResizeObserver(measure);
     if (listRef.current) ro.observe(listRef.current);
     return () => ro.disconnect();
-  }, [active]);
+  }, [active, body]);
 
   return (
     <nav className="glass mode-nav" aria-label="Mode">
       <div className="mode-list" role="tablist" ref={listRef}>
         {indicator && <span className="mode-indicator" style={{ transform: `translateX(${indicator.x}px)`, width: indicator.w }} aria-hidden="true" />}
-        {MODES.map((m) => (
+        {modes.map((m) => (
           <button key={m.id} role="tab" aria-selected={m.id === active} className="mode" onClick={() => set({ tab: m.id })} title={`${m.label} (${m.key})`}>
             <Icon name={m.icon} size={16} />
             <span className="mode-label">{m.label}</span>

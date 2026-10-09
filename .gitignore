@@ -11,3 +11,6 @@ coverage/
 playwright-report/
 test-results/
 .playwright-mcp/
+# built by `pnpm data`, fetched fresh on every deploy
+web/public/data/catalog.*
+web/public/data/ephemeris-*.bin

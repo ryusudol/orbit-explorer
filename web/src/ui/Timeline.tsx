@@ -23,6 +23,7 @@ export function Timeline() {
   const rate = useStore((s) => s.rate);
   const paused = useStore((s) => s.paused);
   const conj = useStore((s) => s.conj);
+  const body = useStore((s) => s.body);
   const set = useStore((s) => s.set);
   const [drag, setDrag] = useState<number | null>(null);
   const lastJump = useRef(0);
@@ -79,6 +80,7 @@ export function Timeline() {
       <div className="scrubber" style={{ ['--p' as string]: p }}>
         <div className="scrub-events" aria-label="Screened conjunctions">
           {catalog &&
+            body === 'earth' &&
             events.map(({ e, k }) => {
               const s = (jdToMs(e.tcaJd) - now) / 1000;
               if (Math.abs(s) > SPAN_S) return null;

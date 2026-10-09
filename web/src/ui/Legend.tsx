@@ -2,12 +2,15 @@ import { GROUP_HEX } from '../scene/SceneController';
 import { useStore } from '../state/store';
 import { int } from './format';
 import { GROUP_LAYER, GROUP_SHORT, LEGEND_ORDER } from './groups';
+import { WorldLegend } from './Worlds';
 
 /** The colour key is also the filter: each chip shows or hides its group. */
 export function Legend() {
   const layers = useStore((s) => s.layers);
   const setLayer = useStore((s) => s.setLayer);
   const counts = useStore((s) => s.groupCounts);
+  const body = useStore((s) => s.body);
+  if (body !== 'earth') return <WorldLegend />;
   return (
     <div className="legend-bar" role="group" aria-label="Object groups">
       {LEGEND_ORDER.map((g) => {

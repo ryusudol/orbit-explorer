@@ -103,6 +103,18 @@ export function decodeStars(buffer: ArrayBuffer): StarCatalog {
  */
 const PSF = { sigma: 0.72, vRef: 6, gain: 1.35, gamma: 0.55, peak: 1.0, maxSigma: 3.2, cutoff: 0.014 };
 
+/** PSF width (device px) and peak for a point of magnitude V; planets use it too. */
+export function psf(vmag: number): { sigma: number; peak: number } {
+  const e = PSF.gain * Math.pow(10, -0.4 * (vmag - PSF.vRef) * PSF.gamma);
+  let sigma = PSF.sigma;
+  let peak = e / (2 * Math.PI * sigma * sigma);
+  if (peak > PSF.peak) {
+    sigma = Math.min(PSF.maxSigma, Math.sqrt(e / (2 * Math.PI * PSF.peak)));
+    peak = PSF.peak;
+  }
+  return { sigma, peak };
+}
+
 type Patch = { map: ReturnType<typeof texture>; uv: PatchUv };
 
 export class Sky {
@@ -202,17 +214,11 @@ export class Sky {
   }
 
   /** Builds the star layer for the renderer's pixel ratio; returns it for the scene. */
-  setStars(cat: StarCatalog, pixelRatio: number): THREE.Object3D {
+  setStars(cat: StarCatalog, pixelRatio: number, toDate = new THREE.Matrix3()): THREE.Object3D {
     const keep: number[] = [];
     const sigma = new Float32Array(cat.count), peak = new Float32Array(cat.count);
     for (let i = 0; i < cat.count; i++) {
-      const e = PSF.gain * Math.pow(10, -0.4 * (cat.vmag[i] - PSF.vRef) * PSF.gamma);
-      let s = PSF.sigma;
-      let pk = e / (2 * Math.PI * s * s);
-      if (pk > PSF.peak) {
-        s = Math.min(PSF.maxSigma, Math.sqrt(e / (2 * Math.PI * PSF.peak)));
-        pk = PSF.peak;
-      }
+      const { sigma: s, peak: pk } = psf(cat.vmag[i]);
       if (pk < PSF.cutoff) continue;
       sigma[i] = s;
       peak[i] = pk;
@@ -223,11 +229,13 @@ export class Sky {
     const o = layer.offsets.array as Float32Array;
     const col = new THREE.Color();
     const white = new THREE.Color(1, 1, 1);
+    const v = new THREE.Vector3();
     keep.forEach((i, k) => {
       const cd = Math.cos(cat.dec[i]);
-      o[3 * k] = R_STARS * cd * Math.cos(cat.ra[i]);
-      o[3 * k + 1] = R_STARS * cd * Math.sin(cat.ra[i]);
-      o[3 * k + 2] = R_STARS * Math.sin(cat.dec[i]);
+      v.set(cd * Math.cos(cat.ra[i]), cd * Math.sin(cat.ra[i]), Math.sin(cat.dec[i])).applyMatrix3(toDate).multiplyScalar(R_STARS);
+      o[3 * k] = v.x;
+      o[3 * k + 1] = v.y;
+      o[3 * k + 2] = v.z;
       starColor(cat.bv[i], col).lerp(white, 0.2);
       // the quad spans ±3σ; sizes are in CSS px, so divide out the pixel ratio
       layer.setColor(k, col, (6 * sigma[i]) / pixelRatio, peak[i]);
@@ -243,10 +251,20 @@ export class Sky {
     this.sun.visible = milkyWayAndSun;
   }
 
-  /** Re-centre on the camera; `sunDir` is the unit vector to the Sun in the scene frame. */
-  update(cam: THREE.Vector3, sunDir: THREE.Vector3) {
+  /** The survey map is J2000; turn it to the scene's equator of date (precession, ~0.36° in 2026). */
+  setFrame(toDate: THREE.Matrix4) {
+    this.milkyWay.quaternion.setFromRotationMatrix(toDate);
+  }
+
+  /**
+   * Re-centre on the camera; `sunDir` is the unit vector to the Sun in the scene
+   * frame, `sunAu` the Sun's distance (its disc shrinks to 0.35° from Mars).
+   */
+  update(cam: THREE.Vector3, sunDir: THREE.Vector3, sunAu = 1) {
     this.milkyWay.position.copy(cam);
     if (this.stars) this.stars.object.position.copy(cam);
     this.sun.position.copy(cam).addScaledVector(sunDir, R_SUN);
+    const size = (2 * R_SUN * Math.tan(SUN_EXTENT)) / sunAu;
+    this.sun.scale.set(size, size, 1);
   }
 }

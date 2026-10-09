@@ -1,4 +1,4 @@
-// Test helpers: load the WASM engine and the committed snapshot under Node.
+// Test helpers: load the WASM engine and the local snapshot (`pnpm data`) under Node.
 import { readFileSync } from 'node:fs';
 import { initSync } from '../engine-pkg/orbit_explorer_engine.js';
 import { decodeCatalog, type Catalog } from '../sim/catalog';

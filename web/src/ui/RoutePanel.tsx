@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { D3Chart } from '../panels/D3Chart';
 import { drawLatency } from '../panels/charts';
-import { CITIES, ROUTE_PRESETS, cityById } from '../sim/cities';
+import { CITIES, cityById, placeName } from '../sim/cities';
 import { fibreLatencyMs, greatCircleKm } from '../sim/physics';
 import { useStore } from '../state/store';
 import { Explain, Section, Stat } from './common';
@@ -32,7 +32,7 @@ export function RoutePanel() {
             <select value={src} onChange={(e) => set({ src: e.target.value })} aria-label="From">
               {CITIES.filter((c) => c.id !== dst).map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {placeName(c)}
                 </option>
               ))}
             </select>
@@ -43,7 +43,7 @@ export function RoutePanel() {
             <select value={dst} onChange={(e) => set({ dst: e.target.value })} aria-label="To">
               {CITIES.filter((c) => c.id !== src).map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {placeName(c)}
                 </option>
               ))}
             </select>
@@ -51,22 +51,6 @@ export function RoutePanel() {
           <button className="icon-btn route-swap" onClick={() => set({ src: dst, dst: src })} aria-label="Swap origin and destination" title="Swap">
             <Icon name="swap" size={15} />
           </button>
-        </div>
-        <div className="chip-row" role="group" aria-label="Example routes">
-          {ROUTE_PRESETS.map(([s, d]) => (
-            <button
-              key={s + d}
-              className="chip-btn"
-              aria-pressed={s === src && d === dst}
-              title={`${cityById(s).name} → ${cityById(d).name}`}
-              aria-label={`${cityById(s).name} to ${cityById(d).name}`}
-              onClick={() => set({ src: s, dst: d })}
-            >
-              {s.toUpperCase()}
-              <Icon name="link" size={11} />
-              {d.toUpperCase()}
-            </button>
-          ))}
         </div>
       </Section>
 

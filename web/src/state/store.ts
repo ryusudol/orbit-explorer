@@ -2,15 +2,19 @@
 // scene pushes small summaries here at ~5 Hz and reads user intent back.
 
 import { create } from 'zustand';
+import type { BodyId } from '../sim/bodies';
+import type { RelayPlan } from '../sim/relay';
 import type { ConjunctionEvent } from '../workers/conjunction.worker';
 
-/** The analysis panel on show; 'explore' is the bare globe. */
-export type Tab = 'explore' | 'route' | 'conj' | 'coverage' | 'catalog' | 'perf';
+export type { BodyId };
+
+/** The analysis panel on show; 'explore' is the bare globe. 'fleet' and 'relay' are the Moon's and Mars'. */
+export type Tab = 'explore' | 'route' | 'conj' | 'coverage' | 'catalog' | 'perf' | 'fleet' | 'relay';
 
 export interface Layers {
   starlink: boolean;
   debris: boolean;
-  payload: boolean;
+  otherSatellites: boolean;
   links: boolean;
   route: boolean;
   coverage: boolean;
@@ -19,6 +23,8 @@ export interface Layers {
   earthFixed: boolean;
   /** NASA Milky Way map and the Sun */
   sky: boolean;
+  /** every orbiter's track around the Moon or Mars, not just the selected one */
+  orbits: boolean;
 }
 
 export interface RouteInfo {
@@ -59,6 +65,40 @@ export interface SelectedInfo {
   perigeeKm: number;
   apogeeKm: number;
   epochAgeH: number;
+}
+
+/** The selected spacecraft or moon around the Moon or Mars. */
+export interface OrbiterInfo {
+  id: number;
+  name: string;
+  kind: 'spacecraft' | 'moon';
+  /** false outside its published trajectory */
+  valid: boolean;
+  latDeg: number;
+  lonDeg: number;
+  altKm: number;
+  speedKms: number;
+  sunlit: number;
+  periodH: number;
+  inclinationDeg: number;
+  eccentricity: number;
+  periapsisKm: number;
+  apoapsisKm: number;
+  /** one-way light time to Earth, s */
+  lightTimeS: number;
+  /** published trajectory span, ms */
+  spanMs: [number, number];
+}
+
+/** One line of the Moon's or Mars' orbiter list, refreshed with the scene's summaries. */
+export interface FleetRow {
+  id: number;
+  name: string;
+  kind: 'spacecraft' | 'moon';
+  by: string;
+  valid: boolean;
+  altKm: number;
+  periodH: number;
 }
 
 export interface ConjState {
@@ -125,10 +165,22 @@ interface State {
 
   layers: Layers;
   tab: Tab;
+  /** the world in focus: where the camera is, or is travelling to */
+  body: BodyId;
+  /** set while the camera flies between worlds */
+  travel: { from: BodyId; to: BodyId } | null;
+  /** Horizons id of the selected orbiter around the Moon or Mars */
+  orbiter: number | null;
+  orbiterInfo: OrbiterInfo | null;
+  /** relay site per world */
+  site: { moon: string; mars: string };
+  relay: RelayPlan | null;
+  fleet: FleetRow[];
   selected: number | null;
   selectedInfo: SelectedInfo | null;
   follow: boolean;
-  hover: { index: number; name: string; x: number; y: number } | null;
+  /** `color` and `meta` describe an orbiter; otherwise `index` is a catalogue object */
+  hover: { index: number; name: string; x: number; y: number; color?: string; meta?: string } | null;
 
   src: string;
   dst: string;
@@ -146,6 +198,7 @@ interface State {
 
   set: (p: Partial<State>) => void;
   setLayer: (k: keyof Layers, v: boolean) => void;
+  setLayers: (p: Partial<Layers>) => void;
   select: (index: number | null) => void;
 }
 
@@ -167,15 +220,23 @@ export const useStore = create<State>((set) => ({
   layers: {
     starlink: true,
     debris: true,
-    payload: true,
-    links: true,
-    route: true,
+    otherSatellites: true,
+    links: false,
+    route: false,
     coverage: false,
-    cones: true,
+    cones: false,
     earthFixed: true,
     sky: true,
+    orbits: true,
   },
-  tab: 'route',
+  tab: 'explore',
+  body: 'earth',
+  travel: null,
+  orbiter: null,
+  orbiterInfo: null,
+  site: { moon: 'shackleton', mars: 'jezero' },
+  relay: null,
+  fleet: [],
   selected: null,
   selectedInfo: null,
   follow: false,
@@ -209,5 +270,30 @@ export const useStore = create<State>((set) => ({
 
   set: (p) => set(p),
   setLayer: (k, v) => set((s) => ({ layers: { ...s.layers, [k]: v } })),
+  setLayers: (p) => set((s) => ({ layers: { ...s.layers, ...p } })),
   select: (index) => set({ selected: index, selectedInfo: null, follow: false }),
 }));
+
+// the routing panel shows its layers while it is open, whatever the layers menu said; closing it puts back the
+// menu's settings from before it opened, except any the user changed while it was open
+type RoutingLayer = 'starlink' | 'links' | 'route' | 'cones';
+const ROUTING_LAYERS: RoutingLayer[] = ['starlink', 'links', 'route', 'cones'];
+const routingOpen = (s: State) => s.tab === 'route' && s.body === 'earth';
+let beforeRouting: Partial<Pick<Layers, RoutingLayer>> | null = null;
+useStore.subscribe((s, prev) => {
+  if (routingOpen(s) && !routingOpen(prev)) {
+    const saved: typeof beforeRouting = {};
+    for (const k of ROUTING_LAYERS) saved[k] = s.layers[k];
+    // the snapshot is held back until they are on, so switching them on is not taken for the user’s own change
+    beforeRouting = null;
+    s.setLayers({ starlink: true, links: true, route: true, cones: true });
+    beforeRouting = saved;
+  } else if (routingOpen(s) && beforeRouting && s.layers !== prev.layers) {
+    // the user's own choice while the panel is open outlives it
+    for (const k of ROUTING_LAYERS) if (s.layers[k] !== prev.layers[k]) delete beforeRouting[k];
+  } else if (!routingOpen(s) && routingOpen(prev) && beforeRouting) {
+    const restore = beforeRouting;
+    beforeRouting = null;
+    s.setLayers(restore);
+  }
+});

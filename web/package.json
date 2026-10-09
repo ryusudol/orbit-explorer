@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "plots": "node scripts/plots.mjs",
     "textures": "node scripts/textures.mjs",
-    "sky": "node scripts/sky.mjs"
+    "sky": "node scripts/sky.mjs",
+    "planets": "node scripts/planets.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.3.0",

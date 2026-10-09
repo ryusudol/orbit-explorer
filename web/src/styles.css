@@ -1,8 +1,10 @@
 /*
- * Orbit Explorer, in a SpaceX / xAI register: pure black, one near-white ink
- * with alpha steps, DIN-style type with short uppercase labels, ghost pills that
- * invert on hover, hairlines instead of boxes, no shadows, gradients or glow in
- * the chrome. Colour is reserved for data: object groups and severity.
+ * Orbit Explorer, in a SpaceX register: pure black, one near-white ink with
+ * alpha steps, DIN-style type with short uppercase labels, square corners,
+ * ghost rectangles that invert on hover, underlines for the chosen option,
+ * hairlines instead of boxes, no shadows, gradients or glow in the chrome.
+ * Round shapes belong to data only (dots, rings, markers); colour is reserved
+ * for data too: object groups and severity.
  */
 
 /* ======================================================================== tokens */
@@ -20,7 +22,7 @@
   --line-3: rgba(240, 240, 250, 0.35);
   --veil: rgba(240, 240, 250, 0.05);
   --veil-2: rgba(240, 240, 250, 0.1);
-  --panel: rgba(0, 0, 0, 0.62);
+  --panel: rgba(0, 0, 0, 0.74);
 
   --good: #8ee6a8;
   --warn: #f2c94c;
@@ -32,7 +34,7 @@
   --dock-h: 76px;
   --panel-w: 380px;
   --rail-w: 300px;
-  --r: 6px;
+  --r: 0;
   --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
   --spring: cubic-bezier(0.32, 0.72, 0, 1);
 
@@ -172,7 +174,7 @@ a:hover {
   gap: 8px;
   padding: 4px 10px 4px 8px;
   border: 1px solid var(--line-3);
-  border-radius: 3px;
+  border-radius: 0;
   background: rgba(0, 0, 0, 0.6);
   font: 600 11px/1.3 var(--sans);
   letter-spacing: 0.16em;
@@ -224,8 +226,8 @@ a:hover {
 .glass {
   background: var(--panel);
   border: 1px solid var(--line);
-  -webkit-backdrop-filter: blur(22px) saturate(1.2);
-  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
   pointer-events: auto;
 }
 
@@ -244,12 +246,10 @@ button.glass:hover {
 
 /* label type: short, uppercase, tracked */
 .btn,
-.chip-btn,
 .now-btn,
 .segmented button,
 .mode,
 .pill-btn,
-.search-trigger,
 .status-chip,
 .legend-chip,
 .follow-pill,
@@ -270,7 +270,7 @@ button.glass:hover {
   letter-spacing: 0.14em;
 }
 
-/* ghost pill; hover inverts to solid ink */
+/* ghost rectangle; hover inverts to solid ink */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -278,9 +278,9 @@ button.glass:hover {
   gap: 8px;
   height: 38px;
   padding: 0 20px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid var(--line-3);
-  background: var(--veil-2);
+  background: transparent;
   color: var(--ink);
   font-size: 11.5px;
   font-weight: 600;
@@ -289,15 +289,14 @@ button.glass:hover {
   transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
-.btn:hover,
 .btn.primary {
+  border-color: var(--ink);
+}
+
+.btn:hover {
   background: var(--ink);
   border-color: var(--ink);
   color: #000;
-}
-
-.btn.primary:hover {
-  background: #fff;
 }
 
 .btn.following {
@@ -324,7 +323,7 @@ button.glass:hover {
 .btn:disabled {
   opacity: 0.4;
   cursor: default;
-  background: var(--veil-2);
+  background: transparent;
   color: var(--ink);
 }
 
@@ -336,7 +335,7 @@ button.glass:hover {
   height: 32px;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--ink-3);
   cursor: pointer;
@@ -355,7 +354,7 @@ button.glass:hover {
   width: 38px;
   height: 38px;
   padding: 0;
-  border-radius: 999px;
+  border-radius: 0;
   border-color: var(--line-2) !important;
   color: var(--ink-2) !important;
 }
@@ -374,9 +373,7 @@ button.glass:hover {
   display: inline-flex;
   gap: 0;
   padding: 0;
-  border: 1px solid var(--line-2);
-  border-radius: 999px;
-  overflow: hidden;
+  border-bottom: 1px solid var(--line);
 }
 
 .segmented button {
@@ -384,7 +381,7 @@ button.glass:hover {
   height: 32px;
   padding: 0 14px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0;
   background: none;
   color: var(--ink-3);
   font-size: 11px;
@@ -399,8 +396,8 @@ button.glass:hover {
 }
 
 .segmented button[aria-checked='true'] {
-  background: var(--ink);
-  color: #000;
+  color: var(--ink);
+  box-shadow: inset 0 -1px 0 var(--ink);
 }
 
 .segmented.sm button {
@@ -442,7 +439,7 @@ button.glass:hover {
   flex: none;
   width: 34px;
   height: 18px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid var(--line-3);
   transition: background 0.25s, border-color 0.25s;
 }
@@ -454,7 +451,7 @@ button.glass:hover {
   left: 2px;
   width: 12px;
   height: 12px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--ink-3);
   transition: transform 0.3s var(--spring), background 0.2s;
 }
@@ -491,51 +488,13 @@ button.glass:hover {
   min-width: 20px;
   height: 20px;
   padding: 0 5px;
-  border-radius: 4px;
+  border-radius: 0;
   border: 1px solid var(--line-2);
   font: 500 10.5px/1 var(--mono);
   letter-spacing: 0;
   text-transform: none;
   color: var(--ink-3);
   white-space: nowrap;
-}
-
-.chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 16px;
-}
-
-.chip-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line-2);
-  background: transparent;
-  color: var(--ink-3);
-  font-size: 10.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
-}
-
-.chip-btn:hover {
-  border-color: var(--line-3);
-  color: var(--ink);
-}
-
-.chip-btn .icon {
-  opacity: 0.6;
-}
-
-.chip-btn[aria-pressed='true'] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: #000;
 }
 
 /* ======================================================================== header */
@@ -570,28 +529,6 @@ button.glass:hover {
 
 .logo {
   color: var(--ink);
-}
-
-.search-trigger {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 36px;
-  padding: 0 8px 0 14px;
-  border-radius: 999px;
-  border-color: var(--line-2) !important;
-  color: var(--ink-3) !important;
-  font-size: 11px;
-  font-weight: 600;
-  text-align: left;
-}
-
-.search-trigger:hover {
-  color: var(--ink) !important;
-}
-
-.search-trigger-text {
-  min-width: 64px;
 }
 
 /* the mode switcher: plain tracked text on the scene, a hairline under the active one */
@@ -690,7 +627,7 @@ button.glass:hover {
   gap: 8px;
   height: 36px;
   padding: 0 16px 0 13px;
-  border-radius: 999px;
+  border-radius: 0;
   border-color: var(--line-2) !important;
   font-size: 11px;
   font-weight: 600;
@@ -775,10 +712,10 @@ button.glass:hover {
   display: grid;
   place-items: center;
   flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  border: 1px solid var(--line-2);
+  width: 20px;
+  height: 20px;
+  border-radius: 0;
+  border: 0;
   color: var(--ink-3);
   transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
@@ -810,7 +747,7 @@ button.glass:hover {
   right: 2px;
   width: 16px;
   height: 16px;
-  border-radius: 50%;
+  border-radius: 0;
   border: 1px solid var(--line-3);
   transform: translateY(-50%);
   transition: background 0.2s, border-color 0.2s;
@@ -825,9 +762,7 @@ button.glass:hover {
 }
 
 .layer-tile[aria-checked='true'] .layer-icon {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: #000;
+  color: var(--ink);
 }
 
 .layer-tile[aria-checked='true'] .layer-check {
@@ -888,7 +823,7 @@ button.glass:hover {
   gap: 8px;
   height: 30px;
   padding: 0 12px 0 10px;
-  border-radius: 999px;
+  border-radius: 0;
   border-color: transparent !important;
   background: transparent !important;
   -webkit-backdrop-filter: none;
@@ -1066,7 +1001,7 @@ button.glass:hover {
   gap: 12px;
   height: 40px;
   padding: 0 4px 0 16px;
-  border-radius: 999px;
+  border-radius: 0;
   border-color: var(--line-2) !important;
   font-size: 11px;
   font-weight: 600;
@@ -1105,7 +1040,7 @@ button.glass:hover {
   height: 30px;
   padding: 0 6px 0 14px;
   border: 1px solid var(--line-3);
-  border-radius: 999px;
+  border-radius: 0;
   background: none;
   color: var(--ink);
   font-weight: 600;
@@ -1192,7 +1127,7 @@ button.glass:hover {
   background: rgba(240, 240, 250, 0.14);
   border: 2px solid transparent;
   background-clip: padding-box;
-  border-radius: 999px;
+  border-radius: 0;
 }
 
 .section {
@@ -1276,7 +1211,7 @@ button.glass:hover {
   align-self: center;
   margin-left: auto;
   padding: 5px 12px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid var(--line-3);
   font-size: 10.5px;
   font-weight: 600;
@@ -1947,10 +1882,10 @@ select option {
   display: grid;
   place-items: center;
   flex: none;
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--line-3);
-  border-radius: 50%;
+  border-radius: 0;
   background: transparent;
   color: var(--ink);
   cursor: pointer;
@@ -2164,7 +2099,7 @@ select option {
   height: 32px;
   padding: 0 16px;
   border: 1px solid var(--line-3);
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--ink);
   font-size: 10.5px;
@@ -2216,7 +2151,7 @@ select option {
   flex-direction: column;
   gap: 0;
   padding: 3px;
-  border-radius: 999px;
+  border-radius: 0;
   border-color: var(--line-2);
   transition: opacity 0.3s;
 }
@@ -2290,7 +2225,7 @@ select option {
   position: absolute;
   z-index: 5;
   padding: 8px 12px;
-  border-radius: 4px;
+  border-radius: 0;
   border: 1px solid var(--line-3);
   background: rgba(0, 0, 0, 0.92);
   font-size: 12.5px;
@@ -2331,12 +2266,11 @@ select option {
   position: absolute;
   z-index: 8;
   display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 12px 6px 10px;
-  border-radius: 3px;
-  border: 1px solid var(--line-3);
-  background: rgba(0, 0, 0, 0.82);
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 10px 5px 9px;
+  border-left: 2px solid var(--c, var(--ink));
+  background: rgba(0, 0, 0, 0.86);
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -2344,6 +2278,8 @@ select option {
   white-space: nowrap;
   pointer-events: none;
   transform: translate(16px, -50%);
+  /* slides from where it was to the pointer, rather than jumping */
+  transition: left 0.15s var(--ease), top 0.15s var(--ease);
 }
 
 .hover-id {
@@ -2429,7 +2365,7 @@ select option {
   width: 100%;
   padding: 9px 12px;
   border: 0;
-  border-radius: 4px;
+  border-radius: 0;
   background: none;
   text-align: left;
   cursor: pointer;
@@ -2449,8 +2385,8 @@ select option {
   flex: none;
   width: 28px;
   height: 28px;
-  border-radius: 50%;
-  border: 1px solid var(--line-2);
+  border-radius: 0;
+  border: 0;
   color: var(--ink-3);
 }
 
@@ -2744,6 +2680,497 @@ select option {
   pointer-events: none;
 }
 
+/* ======================================================================== worlds */
+
+.topbar {
+  grid-template-columns: auto auto auto 1fr auto;
+}
+
+/* Earth · Moon · Mars (phones): a hairline group; the chosen world underlined */
+.world-switch {
+  display: flex;
+  gap: 0;
+  height: 36px;
+  padding: 2px;
+  border-radius: 0;
+  border-color: var(--line-2) !important;
+  pointer-events: auto;
+}
+
+.world {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 13px 0 11px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.25s, color 0.25s;
+}
+
+.world:hover {
+  color: var(--ink);
+}
+
+.world[aria-checked='true'] {
+  color: var(--ink);
+  box-shadow: inset 0 -1px 0 var(--ink);
+}
+
+.world-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--w);
+  box-shadow: inset -2px -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* the destination pulses until the camera arrives */
+.world.arriving .world-dot {
+  animation: arrive-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes arrive-pulse {
+  50% {
+    transform: scale(0.55);
+    opacity: 0.5;
+  }
+}
+
+/* in transit: a caption in the middle of the sky */
+.travel-caption {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--dock-h) + 64px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  pointer-events: none;
+  animation: caption-in 0.7s var(--ease) both;
+}
+
+@keyframes caption-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+}
+
+.travel-k {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.travel-v {
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  padding-left: 0.32em;
+}
+
+.travel-note {
+  font-size: 13px;
+  color: var(--ink-2);
+  letter-spacing: 0.04em;
+}
+
+/* orbiter names: quieter than the place tags, no box */
+.scene-label.orbiter-label {
+  margin: -9px 0 0 12px;
+  padding: 0;
+  gap: 0;
+  border: 0;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--ink-2);
+  text-shadow: 0 0 6px #000, 0 0 2px #000;
+}
+
+.scene-label.orbiter-label::before {
+  display: none;
+}
+
+/* other worlds in the sky: a name you can click to go there */
+.scene-label.world-label {
+  margin: -12px 0 0 14px;
+  padding: 3px 10px 3px 8px;
+  border-color: var(--line-2);
+  cursor: pointer;
+  pointer-events: none;
+  font-size: 10px;
+}
+
+.scene-label.world-label:hover {
+  background: var(--ink);
+  color: #000;
+}
+
+.scene-label.world-label::before {
+  width: 4px;
+  height: 4px;
+}
+
+.legend-chip.static {
+  cursor: default;
+}
+
+.legend-chip.static:hover {
+  border-color: transparent !important;
+}
+
+.legend-ring {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid var(--ink-2);
+}
+
+.legend-chip[aria-checked='false'] .legend-ring {
+  border-style: dashed;
+  border-color: var(--ink-4);
+}
+
+/* the orbiter list reuses the event rows, with a dot of its own */
+.fleet-row::before {
+  display: none;
+}
+
+.fleet-row {
+  padding-left: 4px;
+}
+
+.fleet-row:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.fleet-row:disabled:hover {
+  background: none;
+}
+
+.site-note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+/* relay: one row per link, bars where it is above the horizon */
+.relay-chart {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-bottom: 22px;
+}
+
+.relay-row {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.relay-k {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.relay-track {
+  position: relative;
+  height: 12px;
+  border-radius: 0;
+  background: var(--veil);
+}
+
+.relay-pass {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 0;
+  background: var(--ink);
+}
+
+.relay-row.sun .relay-pass {
+  top: 4px;
+  bottom: 4px;
+  background: rgba(242, 201, 76, 0.55);
+}
+
+.relay-row.earth .relay-pass {
+  background: #6fa8ff;
+}
+
+.relay-row.craft .relay-pass {
+  background: var(--c, #ddaa33);
+  min-width: 2px;
+}
+
+.relay-axis {
+  position: absolute;
+  left: 122px;
+  right: 0;
+  bottom: 0;
+  height: 16px;
+}
+
+.relay-axis span {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--ink-4);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.relay-axis span:first-child {
+  transform: none;
+}
+
+.relay-axis span:last-child {
+  transform: translateX(-100%);
+}
+
+.relay-now {
+  position: absolute;
+  top: -4px;
+  bottom: 18px;
+  width: 1px;
+  background: var(--ink);
+  pointer-events: none;
+}
+
+.sel-about {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.sel-empty {
+  margin: 18px 0 14px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.sel-source {
+  margin: 12px 0 0;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+/* ------------------------------------------------------------------ header tools */
+
+/* the search field: a hairline box with its shortcut, like a form input */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 210px;
+  height: 34px;
+  padding: 0 7px 0 12px;
+  border-color: var(--line-2) !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  color: var(--ink-3) !important;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.search-bar:hover {
+  border-color: var(--line-3) !important;
+  color: var(--ink) !important;
+}
+
+.search-bar-text {
+  flex: 1;
+}
+
+/* Layers and help: plain text and icons on the scene, like the mode tabs */
+.topbar .pill-btn,
+.topbar .round-btn {
+  border-color: transparent !important;
+  background: transparent !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: var(--ink-2) !important;
+}
+
+.topbar .pill-btn:hover,
+.topbar .round-btn:hover,
+.topbar .pill-btn.active {
+  color: var(--ink) !important;
+}
+
+.topbar .pill-btn.active {
+  box-shadow: inset 0 -1px 0 var(--ink);
+}
+
+/* ------------------------------------------------------------------ world headline */
+
+/* the worlds live in the headline at top left; the header switch is for phones */
+.topbar {
+  grid-template-columns: auto 1fr auto;
+}
+
+.topbar .world-switch {
+  display: none;
+}
+
+.world-title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 22px 0 10px;
+  pointer-events: none;
+  /* readable where it overlaps a bright globe */
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.7);
+}
+
+.world-h {
+  margin: 0;
+  font-size: 46px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink);
+  white-space: nowrap;
+  transition: color 0.4s;
+  animation: title-in 0.9s var(--ease) both;
+}
+
+/* a new world's name settles in from wider tracking */
+@keyframes title-in {
+  from {
+    opacity: 0;
+    letter-spacing: 0.45em;
+  }
+}
+
+.world-title.arriving .world-h {
+  color: var(--ink-2);
+}
+
+.world-sub {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+}
+
+/* the other worlds: where you can go, and how far that is right now */
+.world-go {
+  display: flex;
+  gap: 6px;
+  width: max-content;
+  margin: 4px 0 0 -11px;
+  pointer-events: auto;
+}
+
+.world-dest {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px 0 11px;
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.world-dest:hover {
+  border-color: var(--line-2);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.world-km {
+  color: var(--ink-3);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.world-dest .icon {
+  color: var(--ink-3);
+  transition: transform 0.2s var(--ease);
+}
+
+.world-dest:hover .icon {
+  transform: translateX(2px);
+}
+
+/* with a card open below, the headline keeps only the name and summary */
+.hud.has-selection .world-go,
+.hud.has-selection .left-rail .legend-bar {
+  display: none;
+}
+
+.hud.has-selection .world-title {
+  margin-bottom: 0;
+}
+
+/* the key as a list under the headline: names in a column, counts flush right */
+.left-rail .legend-bar {
+  flex-direction: column;
+  gap: 0;
+  width: 236px;
+  margin-left: -10px;
+}
+
+.left-rail .legend-chip {
+  width: 100%;
+  height: 28px;
+  border-radius: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.left-rail .legend-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ======================================================================== responsive */
 
 @media (max-width: 1320px) {
@@ -2752,19 +3179,25 @@ select option {
     --rail-w: 290px;
   }
 
-  .search-trigger {
-    width: 36px;
-    padding: 0;
-    justify-content: center;
+  /* the other worlds shrink to their swatches */
+  .world[aria-checked='false'] .world-name {
+    display: none;
   }
 
-  .search-trigger-text,
-  .search-trigger .kbd {
-    display: none;
+  .world[aria-checked='false'] {
+    padding: 0 10px;
   }
 }
 
 @media (max-width: 1100px) {
+  .search-bar {
+    width: auto;
+  }
+
+  .search-bar-text {
+    display: none;
+  }
+
   .status-backend,
   .pill-label {
     display: none;
@@ -2816,16 +3249,81 @@ select option {
     gap: 8px;
   }
 
-  .search-trigger {
-    order: 3;
-  }
-
   .top-actions {
     order: 2;
   }
 
   .status-chip {
     display: none;
+  }
+
+  /* no keyboard: just the magnifier */
+  .search-bar {
+    border-color: transparent !important;
+    background: transparent !important;
+  }
+
+  .search-bar .kbd {
+    display: none;
+  }
+
+  /* the switcher takes the brand's place in the header row */
+  .topbar {
+    grid-template-columns: auto auto 1fr auto;
+  }
+
+  .brand-name {
+    display: none !important;
+  }
+
+  .world-switch {
+    order: 1;
+  }
+
+  /* no room for the headline: the worlds go back in the header, the key back to a row */
+  .topbar .world-switch {
+    display: flex;
+  }
+
+  .world-title {
+    display: none;
+  }
+
+  .left-rail .legend-bar {
+    flex-direction: row;
+    gap: 4px;
+    width: auto;
+    margin-left: 0;
+  }
+
+  .left-rail .legend-chip {
+    width: auto;
+    height: 30px;
+    border-radius: 0;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .left-rail .legend-count {
+    margin-left: 0;
+  }
+
+  .world {
+    padding: 0 9px;
+  }
+
+  .world-name {
+    font-size: 10px;
+  }
+
+  .travel-caption {
+    bottom: calc(var(--tabbar) + 90px);
+  }
+
+  .travel-v {
+    font-size: 26px;
   }
 
   .vignette.top {

@@ -19,13 +19,27 @@ module.BasisEncoder.prototype.setMipGen = function (on) {
 /** RGB rows top-down -> KTX2 bytes, rows flipped bottom-up (v = 0 at the bottom edge), with clamped mips. */
 export async function encodeKtx2(rgb, width, height, quality) {
   const rgba = await sharp(rgb, { raw: { width, height, channels: 3 } }).flip().ensureAlpha().raw().toBuffer();
+  return encodeRgba(rgba, width, height, quality, true);
+}
+
+/**
+ * Linear RGBA rows top-down -> KTX2, for data rather than colour (relief maps:
+ * one slope in RGB, the other in alpha, so ETC1S codes each as its own
+ * grey slice).
+ */
+export async function encodeKtx2Data(rgba, width, height, quality) {
+  const flipped = await sharp(rgba, { raw: { width, height, channels: 4 } }).flip().raw().toBuffer();
+  return encodeRgba(flipped, width, height, quality, false);
+}
+
+function encodeRgba(rgba, width, height, quality, srgb) {
   const bytes = new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.length);
   return basis.encode(bytes, {
     isUASTC: false,
     generateMipmap: true,
     qualityLevel: quality,
     compressionLevel: 2,
-    isSetKTX2SRGBTransferFunc: true,
+    isSetKTX2SRGBTransferFunc: srgb,
     imageDecoder: async () => ({ data: bytes, width, height }),
   });
 }

@@ -5,6 +5,8 @@ import { Dot, Kbd } from './common';
 import { int, km, regime } from './format';
 import { GROUP_SHORT } from './groups';
 import { Icon, type IconName } from './icons';
+import { BODIES, BODY_ORDER } from '../sim/bodies';
+import { MOON_HEX, SPACECRAFT_HEX, WORLD_HEX, the } from './Worlds';
 
 /** Well-known objects, by NORAD ID, for one-keystroke exploring. */
 const FEATURED: { norad: number; name: string; note: string }[] = [
@@ -31,6 +33,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const listRef = useRef<HTMLDivElement>(null);
   const alt = useStore((s) => s.altitudeKm);
   const layers = useStore((s) => s.layers);
+  const body = useStore((s) => s.body);
   const c = getController()?.catalog;
 
   const icon = (name: IconName) => (
@@ -42,7 +45,26 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const items = useMemo<Item[]>(() => {
     if (!c) return [];
     const st = useStore.getState();
-    const fly = (i: number) => () => getController()?.selectObject(i, true);
+    // an Earth object from the Moon or Mars: fly home first
+    const fly = (i: number) => () => getController()?.travelTo('earth', () => getController()?.selectObject(i, true));
+    const worlds: Item[] = BODY_ORDER.filter((b) => b !== body).map((b) => ({
+      id: `w-${b}`,
+      section: 'Worlds',
+      title: `Fly to ${the(b)}`,
+      meta: b === 'earth' ? 'E' : b === 'moon' ? 'M' : '.',
+      lead: <Dot color={WORLD_HEX[b]} />,
+      run: () => getController()?.travelTo(b),
+    }));
+    const orbiters = (['moon', 'mars'] as const).flatMap((b) =>
+      BODIES[b].orbiters.map<Item>((o) => ({
+        id: `orb${o.id}`,
+        section: `Around ${the(b)}`,
+        title: o.name,
+        meta: o.by,
+        lead: <Dot color={o.kind === 'moon' ? MOON_HEX : SPACECRAFT_HEX} />,
+        run: () => getController()?.travelTo(b, () => getController()?.selectOrbiter(o.id, true)),
+      })),
+    );
     const objectMeta = (i: number) => `${alt ? `${regime(alt[i])} · ${km(alt[i])} · ` : ''}#${c.ids[i]}`;
     const actions: Item[] = [
       { id: 'reset', section: 'View', title: 'Reset view', meta: 'R', lead: icon('home'), run: () => getController()?.resetView() },
@@ -72,18 +94,34 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           lead: icon('satellite'),
           run: fly(f.i),
         }));
-      return [...featured, ...actions];
+      const here = body === 'earth' ? featured : orbiters.filter((o) => o.section === `Around ${the(body)}`);
+      return [...worlds, ...here, ...actions];
     }
 
-    const asId = /^\d+$/.test(query) ? Number(query) : -1;
-    const objects: Item[] = [];
-    for (let i = 0; i < c.count && objects.length < 10; i++) {
-      if (c.ids[i] !== asId && !c.names[i].toUpperCase().includes(query)) continue;
-      objects.push({ id: `o${i}`, section: 'Objects', title: c.names[i], meta: `${GROUP_SHORT[c.group[i]]} · ${objectMeta(i)}`, lead: <Dot color={GROUP_HEX[c.group[i]]} />, run: fly(i) });
-    }
+    // a NORAD ID, also as the cards show it ("#100224") or "NORAD 100224": the exact match first,
+    // then IDs it begins (while typing one out), then names containing the digits (STARLINK-31002)
+    const digits = /^(?:#|NORAD\s*)?(\d+)$/.exec(query)?.[1];
+    const hits: number[] = [];
+    const exact = digits ? c.ids.indexOf(Number(digits)) : -1;
+    if (exact >= 0) hits.push(exact);
+    const collect = (max: number, keep: (i: number) => boolean) => {
+      for (let i = 0; i < c.count && hits.length < max; i++) if (keep(i) && !hits.includes(i)) hits.push(i);
+    };
+    if (digits) collect(5, (i) => String(c.ids[i]).startsWith(digits));
+    collect(10, (i) => c.names[i].toUpperCase().includes(digits ?? query));
+    if (digits) collect(10, (i) => String(c.ids[i]).startsWith(digits));
+    const objects = hits.map<Item>((i) => ({
+      id: `o${i}`,
+      section: 'Objects',
+      title: c.names[i],
+      meta: `${GROUP_SHORT[c.group[i]]} · ${objectMeta(i)}`,
+      lead: <Dot color={GROUP_HEX[c.group[i]]} />,
+      run: fly(i),
+    }));
     const words = query.toLowerCase();
-    return [...objects, ...actions.filter((a) => a.title.toLowerCase().includes(words))];
-  }, [q, c, alt, layers]);
+    const named = (list: Item[]) => list.filter((a) => a.title.toLowerCase().includes(words) || (a.meta ?? '').toLowerCase().includes(words));
+    return [...named(worlds), ...named(orbiters), ...objects, ...actions.filter((a) => a.title.toLowerCase().includes(words))];
+  }, [q, c, alt, layers, body]);
 
   useEffect(() => inputRef.current?.focus(), []);
   useEffect(() => {
@@ -133,7 +171,13 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           <Kbd>Esc</Kbd>
         </div>
         <div className="palette-list" id="palette-list" role="listbox" ref={listRef}>
-          {items.length === 0 && <div className="palette-empty">Nothing matches “{q.trim()}”.</div>}
+          {items.length === 0 && (
+            <div className="palette-empty">
+              {c && /^(?:#|norad\s*)?\d+$/i.test(q.trim())
+                ? `No object with NORAD ID ${q.trim().replace(/^\D+/, '')} in this snapshot (${new Date(c.generatedMs).toISOString().slice(0, 10)}).`
+                : `Nothing matches “${q.trim()}”.`}
+            </div>
+          )}
           {items.map((it, k) => {
             const head = it.section !== lastSection ? it.section : null;
             lastSection = it.section;

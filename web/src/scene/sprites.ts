@@ -5,10 +5,11 @@
 // object sits at the camera position and each instance stores (p - camera),
 // subtracted on the CPU in float64. Near the camera the offsets are small and
 // exact; far away the error is sub-pixel anyway. modelViewMatrix is then just
-// the camera rotation, which three.js composes in float64 on the CPU.
+// the camera rotation, composed in float64 on the CPU (see precision.ts).
 
 import * as THREE from 'three/webgpu';
 import { exp, float, instancedDynamicBufferAttribute, max, smoothstep, uv, vec3, vec4 } from 'three/tsl';
+import { highp } from './precision';
 
 export type SpriteShape = 'glow' | 'ring' | 'star';
 
@@ -36,6 +37,7 @@ export class SpriteLayer {
     // the attribute nodes are untyped in @types/three; they are vec3 / vec4 by construction
     const off = instancedDynamicBufferAttribute(this.offsets, 'vec3') as unknown as ReturnType<typeof vec3>;
     const col = instancedDynamicBufferAttribute(this.colors, 'vec4') as unknown as ReturnType<typeof vec4>;
+    mat.contextNode = highp();
     mat.positionNode = off;
     mat.sizeNode = col.w;
     mat.colorNode = col.xyz;

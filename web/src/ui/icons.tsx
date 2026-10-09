@@ -212,16 +212,29 @@ export function Icon({ name, size = 16, className }: { name: IconName; size?: nu
 }
 
 /**
- * The Orbit Explorer mark, monochrome: a planet, an inclined orbit broken where
- * it passes behind, and a satellite on it. Drawn in currentColor.
+ * The Orbit Explorer mark, monochrome hairlines: a planet, an inclined orbit
+ * that passes in front of it and fades where it runs behind, and a satellite
+ * riding it. The planet's outline breaks where the orbit crosses over it.
+ * Drawn in currentColor.
  */
 export function Logo({ size = 28 }: { size?: number }) {
   return (
-    <svg className="logo" width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <circle cx="16" cy="16" r="6.6" fill="currentColor" />
-      <path d="M5.2 22.2A14 5 -28 0 1 24.9 6.4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.55" />
-      <path d="M26.8 9.8A14 5 -28 0 1 7.1 25.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx="26.4" cy="8.2" r="1.9" fill="currentColor" />
+    <svg
+      className="logo"
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1}
+      strokeLinecap="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M10.79 20.67A7 7 0 1 1 22.96 15.25M22.66 18.14A7 7 0 0 1 13.13 22.39" />
+      <path d="M3.58 21.53A13.6 3.8 -24 0 1 7.85 16.16M21.57 10.05A13.6 3.8 -24 0 1 24.7 9.51" opacity="0.42" />
+      <path d="M28.35 10.33A13.6 3.8 -24 1 1 3.58 21.53" />
+      <circle cx="27.08" cy="9.6" r="1.3" fill="currentColor" stroke="none" />
     </svg>
   );
 }

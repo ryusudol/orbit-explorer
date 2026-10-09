@@ -2,8 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getController, GROUP_HEX } from '../scene/SceneController';
 import { useStore } from '../state/store';
 import { CommandPalette } from './CommandPalette';
-import { Dot, Kbd } from './common';
-import { Header, MODES } from './Header';
+import { Kbd } from './common';
+import { Header } from './Header';
 import { Icon } from './icons';
 import { LayersMenu } from './LayersMenu';
 import { Legend } from './Legend';
@@ -11,6 +11,7 @@ import { ModePanel } from './ModePanel';
 import { SelectionCard } from './SelectionCard';
 import { Timeline } from './Timeline';
 import { ZoomControls } from './ZoomControls';
+import { MODES_BY_WORLD, OrbiterCard, TravelCaption, WorldTitle } from './Worlds';
 
 /** At or below this width the layout is a phone's: time on top, panels as a bottom sheet. */
 const MOBILE = 760;
@@ -18,7 +19,8 @@ const MOBILE = 760;
 const SHORTCUTS: [string, string][] = [
   ['⌘ K  or  /', 'Search objects and actions'],
   ['Space', 'Play or pause time'],
-  ['1 – 5', 'Explore, Routing, Conjunctions, Coverage, Catalogue'],
+  ['1 – 5', 'Explore, Routing, Conjunctions, Coverage, Catalogue (at the Moon and Mars: Explore, Orbiters, Link to Earth)'],
+  ['E  or  M  or  .', 'Fly to the Earth, the Moon or Mars'],
   ['F', 'Follow the selected object'],
   ['Esc', 'Stop following, then clear the selection'],
   ['R', 'Reset the view'],
@@ -26,11 +28,27 @@ const SHORTCUTS: [string, string][] = [
   ['H', 'Hide or show the interface'],
 ];
 
-export function Hud() {
+/** The name of the object under the pointer. Its own component: it updates every frame while the pointer moves. */
+function HoverTip() {
   const hover = useStore((s) => s.hover);
+  const catalog = getController()?.catalog;
+  if (!hover || (!hover.color && !catalog)) return null;
+  return (
+    <div className="hover-tip" style={{ left: hover.x, top: hover.y, ['--c' as string]: hover.color ?? GROUP_HEX[catalog!.group[hover.index]] }}>
+      {hover.name}
+      <span className="hover-id">{hover.color ? hover.meta : `#${catalog!.ids[hover.index]}`}</span>
+    </div>
+  );
+}
+
+export function Hud() {
   const selected = useStore((s) => s.selected);
+  const orbiter = useStore((s) => s.orbiter);
   const follow = useStore((s) => s.follow);
+  const followName = useStore((s) => (s.body === 'earth' ? s.selectedInfo?.name : s.orbiterInfo?.name) ?? '');
   const tab = useStore((s) => s.tab);
+  // the snapshot builder records its source: Space-Track's terms ask for a citation
+  const spaceTrack = useStore((s) => s.meta?.source.startsWith('Space-Track') ?? false);
   const [palette, setPalette] = useState(false);
   const [layers, setLayers] = useState(false);
   const [help, setHelp] = useState(false);
@@ -58,6 +76,7 @@ export function Hud() {
         if (help) setHelp(false);
         else if (layers) setLayers(false);
         else if (s.follow) getController()?.stopFollowing();
+        else if (s.orbiter !== null) getController()?.selectOrbiter(null);
         else if (s.selected !== null) getController()?.selectObject(null);
         else if (s.tab !== 'explore') s.set({ tab: 'explore' });
       } else if (key === '/') {
@@ -65,9 +84,14 @@ export function Hud() {
         setPalette(true);
       } else if (key === '?') {
         setHelp((h) => !h);
+      } else if (key === 'f' && s.body !== 'earth' && s.orbiter !== null) {
+        if (s.follow) getController()?.stopFollowing();
+        else getController()?.flyToOrbiter(s.orbiter);
       } else if (key === 'f' && s.selected !== null) {
         if (s.follow) getController()?.stopFollowing();
         else getController()?.flyTo(s.selected);
+      } else if (key === 'e' || key === 'm' || key === '.') {
+        getController()?.travelTo(key === 'e' ? 'earth' : key === 'm' ? 'moon' : 'mars');
       } else if (key === 'r') {
         getController()?.resetView();
       } else if (key === 'h') {
@@ -75,7 +99,7 @@ export function Hud() {
       } else if (key === 'l') {
         setLayers((l) => !l);
       } else {
-        const mode = MODES.find((m) => m.key === key);
+        const mode = MODES_BY_WORLD[s.body].find((m) => m.key === key);
         if (mode) {
           s.set({ tab: mode.id });
           setCollapsed(false);
@@ -86,15 +110,10 @@ export function Hud() {
     return () => window.removeEventListener('keydown', onKey);
   }, [help, layers]);
 
-  // a phone starts on the bare globe; the tab bar opens the analysis sheet
-  useEffect(() => {
-    if (window.innerWidth <= MOBILE) useStore.getState().set({ tab: 'explore' });
-  }, []);
-
   // on a phone, a selection gets the bottom of the screen: tuck the panel away
   useEffect(() => {
-    if (selected !== null && window.innerWidth <= MOBILE) setCollapsed(true);
-  }, [selected]);
+    if ((selected !== null || orbiter !== null) && window.innerWidth <= MOBILE) setCollapsed(true);
+  }, [selected, orbiter]);
   useEffect(() => setCollapsed(false), [tab]);
 
   // tell the renderer which parts of the screen the interface covers, so the globe centres in the rest
@@ -140,11 +159,8 @@ export function Hud() {
     };
   }, [hidden, collapsed, tab]);
 
-  const catalog = getController()?.catalog;
-  const name = selected !== null && catalog ? catalog.names[selected] : '';
-
   return (
-    <div className={`hud${hidden ? ' ui-hidden' : ''}${selected !== null ? ' has-selection' : ''}`} ref={rootRef}>
+    <div className={`hud${hidden ? ' ui-hidden' : ''}${selected !== null || orbiter !== null ? ' has-selection' : ''}`} ref={rootRef}>
       {/* soft black falloffs so type can sit directly on the scene, no bars */}
       <div className="vignette top" aria-hidden="true" />
       <div className="vignette bottom" aria-hidden="true" />
@@ -152,15 +168,18 @@ export function Hud() {
       {layers && <LayersMenu onClose={() => setLayers(false)} />}
 
       <div className="left-rail">
+        <WorldTitle />
         <Legend />
         <SelectionCard />
+        <OrbiterCard />
       </div>
+      <TravelCaption />
 
       {follow && (
         <div className="glass follow-pill" role="status">
           <span className="follow-ring" />
           <span>
-            Following <b>{name}</b>
+            Following <b>{followName}</b>
           </span>
           <button onClick={() => getController()?.stopFollowing()} title="Stop following and zoom out">
             Stop <Kbd>Esc</Kbd>
@@ -173,16 +192,10 @@ export function Hud() {
       <ZoomControls hidden={hidden} onToggleUi={() => setHidden((h) => !h)} />
 
       <button className="credits" onClick={() => setHelp(true)}>
-        Data: CelesTrak · NASA · ESA
+        Data: {spaceTrack ? 'Space-Track' : 'CelesTrak'} · NASA/JPL · USGS · ESA
       </button>
 
-      {hover && catalog && (
-        <div className="hover-tip" style={{ left: hover.x, top: hover.y }}>
-          <Dot color={GROUP_HEX[catalog.group[hover.index]]} />
-          {hover.name}
-          <span className="hover-id">#{catalog.ids[hover.index]}</span>
-        </div>
-      )}
+      <HoverTip />
 
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
 
@@ -196,8 +209,8 @@ export function Hud() {
               </button>
             </header>
             <p className="modal-lede">
-              Every tracked object in Earth orbit, propagated live with SGP4 in your browser. Drag to orbit, scroll or pinch to zoom, click any dot to
-              inspect it.
+              Every tracked object in Earth orbit, propagated live with SGP4 in your browser, and the spacecraft at the Moon and Mars on their
+              missions’ own trajectories. Drag to orbit, scroll or pinch to zoom, click any dot to inspect it, and pick a world at the top to fly there.
             </p>
             <dl className="shortcuts">
               {SHORTCUTS.map(([k, v]) => (
@@ -215,9 +228,21 @@ export function Hud() {
               ))}
             </dl>
             <p className="modal-credits">
-              Orbital elements: <a href="https://celestrak.org" target="_blank" rel="noreferrer">CelesTrak</a>. Earth: NASA Blue Marble Next Generation and
+              Orbital elements:{' '}
+              {spaceTrack ? (
+                <a href="https://www.space-track.org" target="_blank" rel="noreferrer">
+                  Space-Track.org
+                </a>
+              ) : (
+                <a href="https://celestrak.org" target="_blank" rel="noreferrer">
+                  CelesTrak
+                </a>
+              )}
+              . Starlink hardware generations: Jonathan McDowell, planet4589.org. Earth: NASA Blue Marble Next Generation and
               Black Marble 2016. Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020, from ESA Gaia DR2. Stars:
-              ESA Hipparcos catalogue. SGP4, frames, routing and screening: own Rust/WASM.
+              ESA Hipparcos catalogue. Moon: NASA LRO (LROC WAC colour, LOLA elevation) via the SVS CGI Moon Kit. Mars: Viking colour mosaic (USGS
+              Astrogeology), MGS MOLA elevation (PDS). Lunar and Martian orbiters and moons: JPL Horizons. SGP4, frames, routing and screening: own
+              Rust/WASM.
             </p>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { classify, isoToJd } from '../../../data/fetch-tles.mjs';
 import { loadSnapshot, loadSnapshotMeta } from '../test/node';
-import { Category, ELEMENT_STRIDE, Group, meanAltitudeKm, subset } from './catalog';
+import { Category, ELEMENT_STRIDE, Group, meanAltitudeKm, starlinkVersion, subset } from './catalog';
 import { msToJd } from './time';
 
 describe('snapshot', () => {
@@ -40,6 +40,22 @@ describe('snapshot', () => {
     expect(median).toBeGreaterThan(400);
     expect(median).toBeLessThan(600);
     expect(Array.from(idx).every((i) => c.group[i] === Group.Starlink)).toBe(true);
+  });
+});
+
+describe('starlinkVersion', () => {
+  it('tells the hardware generations apart by NORAD id', () => {
+    expect(starlinkVersion(44713)).toBe(1); // STARLINK-1007, V1.0 launch 1
+    expect(starlinkVersion(53388)).toBe(1); // Group 4, V1.5
+    expect(starlinkVersion(56287)).toBe(2); // 2023-056, V2 Mini
+    expect(starlinkVersion(56317)).toBe(1); // 2023-058, V1.5 again
+    expect(starlinkVersion(57381)).toBe(1); // 2023-099, the last V1.5 launch
+    expect(starlinkVersion(57404)).toBe(2);
+    expect(starlinkVersion(60720)).toBe(2); // Direct-to-Cell
+    expect(starlinkVersion(100779)).toBe(2);
+    expect(starlinkVersion(100855)).toBe(3); // Starship flight 14
+    expect(starlinkVersion(100880)).toBe(3);
+    expect(starlinkVersion(100881)).toBe(2); // Falcon 9 launches after it
   });
 });
 

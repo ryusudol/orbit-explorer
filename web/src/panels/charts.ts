@@ -35,9 +35,59 @@ interface Frame<D> {
   tip: Selection<HTMLDivElement, unknown, null, undefined>;
   data: D;
   width: number;
+  /** the hover readout's eased position, while the pointer is over the chart */
+  glide?: Glide;
+}
+
+interface Glide {
+  at: number[];
+  to: number[];
+  draw: (p: number[]) => void;
+  raf: number;
+  t: number;
 }
 
 let chartIds = 0;
+
+const reducedMotion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+
+/**
+ * Moves the hover readout (crosshair, dot, tooltip) toward `to` with an
+ * exponential ease, so it slides from the previous sample to the hovered one
+ * instead of snapping. `to` is [x, ...ys]; `draw` places everything at a point.
+ * The first point after entering the chart snaps, as does reduced motion.
+ */
+function glide(f: Frame<unknown>, to: number[], draw: (p: number[]) => void) {
+  const g = f.glide;
+  if (!g || g.at.length !== to.length || reducedMotion?.matches) {
+    if (g) cancelAnimationFrame(g.raf);
+    f.glide = { at: to, to, draw, raf: 0, t: 0 };
+    draw(to);
+    return;
+  }
+  g.to = to;
+  g.draw = draw;
+  if (g.raf) return;
+  g.t = 0;
+  const step = (now: number) => {
+    // a frame's timestamp can predate the call that scheduled it, so the first step assumes one 60 Hz frame
+    const dt = g.t ? now - g.t : 1000 / 60;
+    const k = 1 - Math.exp(-dt / 30); // ~30 ms time constant, as the globe's hover ring
+    g.t = now;
+    g.at = g.at.map((v, i) => v + (g.to[i] - v) * k);
+    const done = g.at.every((v, i) => Math.abs(g.to[i] - v) < 0.25);
+    if (done) g.at = g.to;
+    g.draw(g.at);
+    g.raf = done ? 0 : requestAnimationFrame(step);
+  };
+  g.raf = requestAnimationFrame(step);
+}
+
+/** Ends the hover: stops any glide so the next entry snaps. */
+function unglide(f: Frame<unknown>) {
+  if (f.glide) cancelAnimationFrame(f.glide.raf);
+  f.glide = undefined;
+}
 
 /** A vertical fade from `color` to transparent, defined once per chart. */
 function wash(f: Frame<unknown>, color: string, opacity: number): string {
@@ -80,8 +130,9 @@ function frame<D>(root: HTMLDivElement, height: number, layers: string[], data: 
   return f;
 }
 
-function tooltip(tip: Frame<unknown>['tip'], x: number, y: number, head: string, rows: { color?: string; key?: 'line' | 'rect'; value: string; label: string }[]) {
-  tip.style('display', null).style('left', `${x}px`).style('top', `${y}px`);
+/** Fills the tooltip; its position is set separately by `place`, which glides. */
+function tooltip(tip: Frame<unknown>['tip'], head: string, rows: { color?: string; key?: 'line' | 'rect'; value: string; label: string }[]) {
+  tip.style('display', null);
   tip.selectAll('*').remove();
   tip.append('div').attr('class', 't-head').text(head);
   for (const r of rows) {
@@ -90,6 +141,25 @@ function tooltip(tip: Frame<unknown>['tip'], x: number, y: number, head: string,
     row.append('b').text(r.value);
     row.append('span').text(r.label);
   }
+}
+
+function place(tip: Frame<unknown>['tip'], x: number, y: number) {
+  tip.style('left', `${x}px`).style('top', `${y}px`);
+}
+
+/** The crosshair: a vertical rule at x and a dot per series at ys. */
+function crosshair(cross: G, x: number, ys: number[], colors: string[], y0: number, y1: number) {
+  cross.selectAll('line').data([0]).join('line').attr('x1', x).attr('x2', x).attr('y1', y0).attr('y2', y1).attr('stroke', INK.axis);
+  cross
+    .selectAll('circle')
+    .data(ys)
+    .join('circle')
+    .attr('cx', x)
+    .attr('cy', (v) => v)
+    .attr('r', 4)
+    .attr('fill', (_, i) => colors[i])
+    .attr('stroke', INK.surface)
+    .attr('stroke-width', 2);
 }
 
 function gridY(g: G, y: (v: number) => number, ticks: number[], x0: number, x1: number) {
@@ -210,27 +280,21 @@ export function drawLatency(root: HTMLDivElement, data: LatencyData, width: numb
       const tx = x.invert(mx).getTime();
       const i = Math.min(p.length - 1, bisector((s: { t: number }) => s.t).center(p, tx));
       const s = p[i];
-      const px = x(new Date(s.t));
-      cross.selectAll('line').data([0]).join('line').attr('x1', px).attr('x2', px).attr('y1', M.t).attr('y2', H - M.b).attr('stroke', INK.axis);
-      cross
-        .selectAll('circle')
-        .data([
-          { v: s.sat, c: LINE.primary },
-          ...(d.fibreMs !== null ? [{ v: d.fibreMs, c: LINE.reference }] : []),
-        ])
-        .join('circle')
-        .attr('cx', px)
-        .attr('cy', (q) => y(q.v))
-        .attr('r', 4)
-        .attr('fill', (q) => q.c)
-        .attr('stroke', INK.surface)
-        .attr('stroke-width', 2);
-      tooltip(f.tip, px, y(s.sat), formatUtc(s.t) + ' UTC', [
+      const dots = [
+        { v: s.sat, c: LINE.primary },
+        ...(d.fibreMs !== null ? [{ v: d.fibreMs, c: LINE.reference }] : []),
+      ];
+      tooltip(f.tip, formatUtc(s.t) + ' UTC', [
         { color: LINE.primary, value: `${s.sat.toFixed(2)} ms`, label: 'laser path' },
         ...(d.fibreMs !== null ? [{ color: LINE.reference, value: `${d.fibreMs.toFixed(2)} ms`, label: 'fibre, great circle' }] : []),
       ]);
+      glide(f, [x(new Date(s.t)), ...dots.map((q) => y(q.v))], ([px, ...ys]) => {
+        crosshair(cross, px, ys, dots.map((q) => q.c), M.t, H - M.b);
+        place(f.tip, px, ys[0]);
+      });
     })
     .on('pointerleave', () => {
+      unglide(f);
       cross.selectAll('*').remove();
       f.tip.style('display', 'none');
     });
@@ -335,11 +399,14 @@ export function drawRange(root: HTMLDivElement, data: RangeData, width: number) 
       const p = d.minutes.map((m, i) => ({ m, v: d.km[i] })).filter((q) => Number.isFinite(q.v));
       const i = Math.min(p.length - 1, bisector((q: { m: number }) => q.m).center(p, x.invert(ev.offsetX)));
       const q = p[i];
-      cross.selectAll('line').data([0]).join('line').attr('x1', x(q.m)).attr('x2', x(q.m)).attr('y1', M.t).attr('y2', H - M.b).attr('stroke', INK.axis);
-      cross.selectAll('circle').data([q]).join('circle').attr('cx', x(q.m)).attr('cy', y(Math.max(lo, q.v))).attr('r', 4).attr('fill', LINE.primary).attr('stroke', INK.surface).attr('stroke-width', 2);
-      tooltip(f.tip, x(q.m), y(Math.max(lo, q.v)), `TCA ${q.m >= 0 ? '+' : ''}${q.m.toFixed(1)} min`, [{ value: q.v < 10 ? `${q.v.toFixed(3)} km` : `${q.v.toFixed(0)} km`, label: 'separation' }]);
+      tooltip(f.tip, `TCA ${q.m >= 0 ? '+' : ''}${q.m.toFixed(1)} min`, [{ value: q.v < 10 ? `${q.v.toFixed(3)} km` : `${q.v.toFixed(0)} km`, label: 'separation' }]);
+      glide(f, [x(q.m), y(Math.max(lo, q.v))], ([px, py]) => {
+        crosshair(cross, px, [py], [LINE.primary], M.t, H - M.b);
+        place(f.tip, px, py);
+      });
     })
     .on('pointerleave', () => {
+      unglide(f);
       cross.selectAll('*').remove();
       f.tip.style('display', 'none');
     });
@@ -420,11 +487,14 @@ export function drawCoverage(root: HTMLDivElement, data: CoverageData, width: nu
       const i = Math.max(0, Math.min(nn - 1, Math.floor(((lat + 90) / 180) * nn)));
       const la = -90 + (i + 0.5) * (180 / nn);
       const v = d.byLat[i];
-      cross.selectAll('line').data([0]).join('line').attr('x1', x(la)).attr('x2', x(la)).attr('y1', M.t).attr('y2', H - M.b).attr('stroke', INK.axis);
-      cross.selectAll('circle').data([0]).join('circle').attr('cx', x(la)).attr('cy', y(v)).attr('r', 4).attr('fill', LINE.primary).attr('stroke', INK.surface).attr('stroke-width', 2);
-      tooltip(f.tip, x(la), y(v), `${Math.abs(la).toFixed(0)}°${la >= 0 ? 'N' : 'S'}`, [{ value: v.toFixed(1), label: 'satellites above 25°, mean' }]);
+      tooltip(f.tip, `${Math.abs(la).toFixed(0)}°${la >= 0 ? 'N' : 'S'}`, [{ value: v.toFixed(1), label: 'satellites above 25°, mean' }]);
+      glide(f, [x(la), y(v)], ([px, py]) => {
+        crosshair(cross, px, [py], [LINE.primary], M.t, H - M.b);
+        place(f.tip, px, py);
+      });
     })
     .on('pointerleave', () => {
+      unglide(f);
       cross.selectAll('*').remove();
       f.tip.style('display', 'none');
     });
@@ -437,7 +507,7 @@ export interface AltitudeData {
   group: Uint8Array;
 }
 
-const GROUP_LABELS = ['Starlink', 'Debris & rocket bodies', 'Other payloads'];
+const GROUP_LABELS = ['Starlink', 'Debris & rocket bodies', 'Other satellites'];
 
 /**
  * Small multiples, one row per group sharing the log-altitude axis. The groups
@@ -534,15 +604,15 @@ export function drawAltitude(root: HTMLDivElement, data: AltitudeData, width: nu
       const total = counts[0][b] + counts[1][b] + counts[2][b];
       tooltip(
         f.tip,
-        xm,
-        M.t + 10,
         `${Math.round(edges[b]).toLocaleString()}–${Math.round(edges[b + 1]).toLocaleString()} km · ${total.toLocaleString()} objects`,
         order.filter((g) => counts[g][b] > 0).map((g) => ({ color: SERIES[g], key: 'rect' as const, value: counts[g][b].toLocaleString(), label: GROUP_LABELS[g] })),
       );
       f.tip.style('transform', 'translate(-50%, 0)');
+      glide(f, [xm], ([px]) => place(f.tip, px, M.t + 10));
       f.g.bars.selectAll<SVGPathElement, Bar>('path').attr('fill-opacity', (s) => (s.b === b ? 1 : 0.55));
     })
     .on('pointerleave', () => {
+      unglide(f);
       f.tip.style('display', 'none').style('transform', null);
       f.g.bars.selectAll('path').attr('fill-opacity', 1);
     });

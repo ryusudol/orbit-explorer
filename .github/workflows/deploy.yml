@@ -2,20 +2,29 @@ name: Deploy
 
 # Cloudflare Pages, because the page must be cross-origin isolated
 # (COOP/COEP headers, see web/public/_headers) for SharedArrayBuffer, which
-# GitHub Pages cannot serve. Runs after CI on main, or after the daily snapshot.
-# Needs repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
+# GitHub Pages cannot serve. Needs repository secrets CLOUDFLARE_API_TOKEN and
+# CLOUDFLARE_ACCOUNT_ID.
+#
+# The catalogue and ephemeris snapshots aren't in git: every deploy fetches
+# them, and a scheduled deploy every 6 hours keeps them current. SGP4 from
+# TLEs is good to ~1 km at epoch and drifts by a few km per day, so a few
+# hours' extra age is invisible in the scene; new launches still appear the
+# same day. The ephemeris covers 10 days ahead. The demo never calls CelesTrak or Horizons
+# at runtime. If a fetch fails, the job fails and the last deployment stays up.
 
 on:
   push:
     branches: [main]
-  workflow_run:
-    workflows: [TLE snapshot]
-    types: [completed]
+  schedule:
+    - cron: '17 */6 * * *'
   workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +39,21 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+
+      # CelesTrak's CSVs carry over between runs, so a push soon after a
+      # scheduled deploy reuses them instead of asking again
+      - uses: actions/cache@v4
+        with:
+          path: data/cache/*.csv
+          key: gp-${{ github.run_id }}
+          restore-keys: gp-
+      - name: Fetch GP elements and JPL Horizons trajectories
+        env:
+          # Optional: with a Space-Track account the full public catalogue (~30k) is used.
+          SPACETRACK_USER: ${{ secrets.SPACETRACK_USER }}
+          SPACETRACK_PASS: ${{ secrets.SPACETRACK_PASS }}
+        run: pnpm data
+
       - run: pnpm build
 
       - name: Publish to Cloudflare Pages

@@ -100,7 +100,7 @@ export class Earth {
     const lambert = max(ndl, 0).mul(0.8).add(0.2);
     const dayColor = dayRgb.mul(lambert).mul(0.72);
     // city lights: sodium-vapour amber, gamma-lifted so dim suburbs still read
-    const lights = pow(half.night.r, float(1.5)).mul(vec3(1.0, 0.62, 0.3)).mul(2.1);
+    const lights = pow(half.night.r, float(1.5)).mul(vec3(1.0, 0.62, 0.3)).mul(1.5);
     const nightColor = lights.add(dayRgb.mul(0.03));
     const viewDir = normalize(cameraPosition.sub(positionWorld));
     const fresnel = pow(float(1).sub(max(dot(normalWorld, viewDir), 0)), float(3.5));

@@ -28,6 +28,16 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      # The tests read the snapshots, which aren't in git. CelesTrak's CSVs carry
+      # over between runs, so it's only asked again once they're 2 hours old.
+      - uses: actions/cache@v4
+        with:
+          path: data/cache/*.csv
+          key: gp-${{ github.run_id }}
+          restore-keys: gp-
+      - name: Fetch snapshots
+        run: pnpm data
+
       # Engine: Vallado verification set, frames, Sun, grid-vs-brute-force,
       # +Grid topology, step-size independence of the conjunction sieve
       - name: cargo test

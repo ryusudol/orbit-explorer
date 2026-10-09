@@ -63,7 +63,7 @@ export function isoToJd(iso) {
 
 function parseCsv(text) {
   const lines = text.trim().split(/\r?\n/);
-  const header = lines[0].split(',');
+  const header = lines[0].split(',').map((h) => h.replace(/^"|"$/g, ''));
   const col = (name) => header.indexOf(name);
   const idx = {
     name: col('OBJECT_NAME'), id: col('NORAD_CAT_ID'), epoch: col('EPOCH'), n: col('MEAN_MOTION'), e: col('ECCENTRICITY'),
@@ -106,14 +106,16 @@ async function cachedFetch(key, url, init) {
   try {
     const res = await fetch(url, init);
     const text = await res.text();
-    if (res.ok && (text.startsWith('OBJECT_NAME') || text.startsWith('"OBJECT_NAME'))) {
+    // CelesTrak's CSV starts with OBJECT_NAME; Space-Track's puts OMM header keywords first
+    if (res.ok && /\bOBJECT_NAME\b/.test(text.slice(0, text.indexOf('\n')))) {
       await writeFile(path, text);
       console.log(`  ${key}: fetched ${text.split('\n').length - 1} rows`);
       return text;
     }
     console.warn(`  ${key}: server said: ${text.trim().split('\n')[0].slice(0, 100)}`);
   } catch (err) {
-    console.warn(`  ${key}: fetch failed (${err.message})`);
+    // fetch() reports every network failure as "fetch failed"; the cause says which (timeout, refused, DNS)
+    console.warn(`  ${key}: fetch failed (${err.cause?.code ?? err.cause?.message ?? err.message})`);
   }
   if (cached) {
     console.log(`  ${key}: using cache (${(cached.age / 3600000).toFixed(1)} h old)`);
@@ -124,11 +126,14 @@ async function cachedFetch(key, url, init) {
 
 async function fromCelestrak() {
   const all = [];
+  const missing = [];
   for (const { group, category } of CELESTRAK_GROUPS) {
     const text = await cachedFetch(group, `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=csv`);
-    if (!text) continue;
+    if (!text) { missing.push(group); continue; }
     for (const row of parseCsv(text)) all.push({ ...row, hint: category });
   }
+  // a partial catalogue would silently replace a complete one: keep the old snapshot instead
+  if (missing.length) throw new Error(`no data for ${missing.join(', ')}; snapshot left unchanged`);
   return { rows: all, source: 'CelesTrak GP (active + debris groups + analyst)' };
 }
 
@@ -139,8 +144,10 @@ async function fromSpaceTrack(user, pass) {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ identity: user, password: pass }),
   });
-  if (!login.ok) throw new Error(`Space-Track login failed: ${login.status}`);
+  // a wrong username or password still answers 200, with a body saying the login failed
+  const reply = await login.text();
   const cookie = login.headers.get('set-cookie')?.split(';')[0] ?? '';
+  if (!login.ok || /fail/i.test(reply) || !cookie) throw new Error(`Space-Track login failed (${login.status}): ${reply.slice(0, 100)}`);
   const query = `${base}/basicspacedata/query/class/gp/decay_date/null-val/epoch/%3Enow-${MAX_ELEMENT_AGE_DAYS}/orderby/norad_cat_id/format/csv`;
   const text = await cachedFetch('spacetrack-gp', query, { headers: { cookie } });
   if (!text) throw new Error('Space-Track query failed');

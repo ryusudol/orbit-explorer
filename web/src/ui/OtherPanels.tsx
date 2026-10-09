@@ -111,8 +111,9 @@ export function CatalogPanel() {
       <Section title="Source" aside={meta ? new Date(meta.generated).toUTCString().replace('GMT', 'UTC') : ''}>
         <p className="body-text">{meta?.source}</p>
         <Explain title="About the snapshot">
-          A daily GitHub Action snapshots the GP element sets into a compact binary file (16 B of float64 + 24 B of float32 per object), so the
-          demo never calls CelesTrak live. With Space-Track credentials the same script pulls the full public catalogue (~30,000 objects).
+          Every 6 hours the site is redeployed with a fresh snapshot of the GP element sets, packed into a compact binary file (16 B of float64
+          + 24 B of float32 per object), so the demo never calls CelesTrak or Space-Track live. Without credentials the script takes CelesTrak's active
+          payloads and major debris clouds (~20,000 objects); with Space-Track credentials it pulls the full public catalogue (~32,600).
         </Explain>
       </Section>
     </>
