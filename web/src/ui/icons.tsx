@@ -95,6 +95,13 @@ const PATHS = {
       <path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4" />
     </>
   ),
+  locate: (
+    <>
+      <circle cx="12" cy="12" r="6.5" />
+      <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none" />
+      <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" />
+    </>
+  ),
   target: (
     <>
       <circle cx="12" cy="12" r="8.5" />

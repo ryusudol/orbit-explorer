@@ -277,6 +277,7 @@ export class SceneController {
     this.controls.minDistance = R_EARTH + 400;
     this.controls.maxDistance = 250_000;
     this.controls.zoomSpeed = 0.8;
+    this.controls.addEventListener('start', () => (this.interacted = true));
     this.initialView();
 
     store.set({ loadingStep: 'Starting SGP4 workers' });
@@ -293,6 +294,7 @@ export class SceneController {
     window.addEventListener('resize', this.onResize);
     store.set({ perf: { ...store.perf, backend, workers } });
     this.renderer.setAnimationLoop(this.frame);
+    this.locateIfAllowed();
   }
 
   private onResize = () => {};
@@ -359,11 +361,59 @@ export class SceneController {
       .catch((err) => console.warn('Star catalogue unavailable', err));
   }
 
-  /** Over the North Atlantic, framing London and New York; elsewhere, the lit side facing Earth. */
+  /** Where the opening view looks down: North America, or the visitor if they share their location. */
+  private home = { lat: 38, lon: -97 };
+  /** set once the visitor turns or zooms the globe themselves */
+  private interacted = false;
+
+  /** Above `home` (Routing frames its own two cities); elsewhere, the lit side facing Earth. */
   private homePosition(): THREE.Vector3 {
     if (this.focus !== 'earth') return this.arrivalOffset(this.focus, 'earth');
     const g = gmst(this.clock.jd);
-    return new THREE.Vector3(...geodeticToEcef(38, -38, 0)).normalize().applyAxisAngle(Z_AXIS, g).multiplyScalar(this.fitDistance('earth'));
+    return new THREE.Vector3(...geodeticToEcef(this.home.lat, this.home.lon, 0)).normalize().applyAxisAngle(Z_AXIS, g).multiplyScalar(this.fitDistance('earth'));
+  }
+
+  /**
+   * Makes the visitor's location home, if the browser will say where that is.
+   * Rounded to a degree, plenty to aim a camera, and never stored or sent anywhere.
+   */
+  private findHome(): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve(false);
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          this.home = { lat: Math.round(coords.latitude), lon: Math.round(coords.longitude) };
+          resolve(!this.disposed);
+        },
+        () => resolve(false), // declined or unavailable: North America stays home
+        { enableHighAccuracy: false, maximumAge: 24 * 3600 * 1000, timeout: 30_000 },
+      );
+    });
+  }
+
+  /**
+   * On load, never prompt: only a visitor who already allowed location (with the
+   * button, on an earlier visit) starts above it, and only if they haven't begun
+   * exploring by the time the browser answers.
+   */
+  private async locateIfAllowed() {
+    try {
+      if ((await navigator.permissions?.query({ name: 'geolocation' }))?.state !== 'granted') return;
+    } catch {
+      return;
+    }
+    if (!(await this.findHome())) return;
+    const s = useStore.getState();
+    const untouched = !this.interacted && !this.flight && !this.travel && this.focus === 'earth' && s.selected === null && s.tab === 'explore';
+    if (untouched) this.startFlight(this.homePosition(), new THREE.Vector3(), 1500, { earthFixed: true });
+  }
+
+  /** The "my location" button: asks the browser (it prompts once) and flies there. */
+  async goToMyLocation(): Promise<boolean> {
+    if (!(await this.findHome())) return false;
+    if (this.focus === 'earth' && !this.travel) this.resetView();
+    else this.travelTo('earth', () => this.resetView());
+    return true;
   }
 
   private initialView() {
@@ -405,6 +455,7 @@ export class SceneController {
   /** Smoothly scale the camera's distance to its target. */
   zoomBy(factor: number) {
     if (!this.controls) return;
+    this.interacted = true;
     const d = this.zoomGoal ?? this.camera.position.distanceTo(this.controls.target);
     const k = useStore.getState().follow ? factor ** FOLLOW_ZOOM : factor;
     this.zoomGoal = THREE.MathUtils.clamp(d * k, this.controls.minDistance, this.controls.maxDistance);
@@ -1147,6 +1198,9 @@ export class SceneController {
           s.set({ latency: [], route: null });
           this.rebuildCones(s.src, s.dst);
           if (s.tab === 'route' && this.focus === 'earth' && !this.travel) this.frameRoute(s.src, s.dst);
+        } else if (s.tab === 'route' && prev.tab !== 'route' && this.focus === 'earth' && !this.travel) {
+          // opening Routing: the home view looks elsewhere, so bring the two cities into view
+          this.frameRoute(s.src, s.dst);
         }
       }),
     );

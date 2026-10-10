@@ -2167,6 +2167,23 @@ select option {
   height: 38px;
 }
 
+/* "my location": pulses while the browser is asked, dims when it can't say */
+.control-stack .icon-btn[aria-busy='true'] {
+  color: var(--ink);
+  animation: locate-pulse 1.1s ease-in-out infinite;
+}
+
+.control-stack .icon-btn.unavailable {
+  color: var(--ink-3);
+  opacity: 0.5;
+}
+
+@keyframes locate-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
 .credits {
   position: absolute;
   right: var(--edge);

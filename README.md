@@ -109,6 +109,7 @@ What each test proves, and where it lives:
 
 The globe fills the screen; the interface is a few pieces of type and thin-lined black panels that appear when needed, in a monochrome, uppercase-labelled style after SpaceX's mission graphics. Colour is reserved for data.
 
+- **The opening view** looks down on North America. The location button under the zoom controls flies to you instead, after the browser asks; once you've allowed it, the app opens there. Your position is rounded to a whole degree, only aims the camera, and never leaves the page; **R** comes back to it.
 - **Modes** across the top: Explore (just the globe), Routing, Conjunctions, Coverage and Catalogue. Each opens one panel on the right; the globe re-centres into the space that is left by shifting the projection, not the camera.
 - **⌘K** opens one search box for every object in the catalogue (by name, or by NORAD ID typed as `100855`, `#100855` or `NORAD 100855`, matching as you type), well-known objects and view actions.
 - **Selecting** an object shows its live state and always draws its orbit, fading behind it and bright ahead. **Follow** flies the camera there along a great-circle arc and rides along; stopping zooms back out with the object still centred. Selecting a conjunction draws both objects' orbits, so the crossing geometry is visible.
