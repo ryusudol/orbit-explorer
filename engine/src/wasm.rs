@@ -87,12 +87,11 @@ impl Propagator {
         }
     }
 
-    /// `n` TEME positions evenly spaced over [jd0, jd1]; NaN where SGP4 fails.
-    pub fn track(&mut self, idx: usize, jd0: f64, jd1: f64, n: usize) -> Vec<f64> {
-        let mut out = Vec::with_capacity(3 * n);
+    /// TEME positions at each of `jds`; NaN where SGP4 fails.
+    pub fn track(&mut self, idx: usize, jds: &[f64]) -> Vec<f64> {
+        let mut out = Vec::with_capacity(3 * jds.len());
         let sat = &mut self.batch.sats[idx];
-        for k in 0..n {
-            let jd = jd0 + (jd1 - jd0) * k as f64 / (n.max(2) - 1) as f64;
+        for &jd in jds {
             match sat.propagate_jd(jd) {
                 Ok((r, _)) => out.extend_from_slice(&r),
                 Err(_) => out.extend_from_slice(&[f64::NAN; 3]),

@@ -18,7 +18,7 @@ import { SimClock, jdToMs } from '../sim/time';
 import { useStore, type Layers } from '../state/store';
 import type { AnalysisResult } from '../workers/analysis.worker';
 import { Earth } from './earth';
-import { OrbitPath, SegmentLayer, ThickPath } from './lines';
+import { OrbitPath, SegmentLayer, ThickPath, orbitPhase } from './lines';
 import { CoverageOverlay, visibilityCone } from './overlays';
 import { Sky, decodeStars } from './sky';
 import { Spacecraft, orbitFrame } from './spacecraft';
@@ -161,10 +161,9 @@ export class SceneController {
   private edges: Uint32Array | null = null;
   private routePath: Uint32Array | null = null;
   private routePoints = new Float64Array(MAX_ROUTE_POINTS * 3);
-  /** cached one-period tracks, resampled twice a second */
-  private tracks = [0, 1].map(() => ({ for: -1, at: 0, jd0: 0, days: 0, pts: new Float64Array(ORBIT_SAMPLES * 3) }));
-  /** the selected track with the object's exact position spliced in */
-  private spliced = new Float64Array((ORBIT_SAMPLES + 1) * 3);
+  /** one-period tracks centred on now: the selected object's every frame, the other's twice a second */
+  private tracks = [0, 1].map(() => ({ for: -1, at: 0, pts: new Float64Array(ORBIT_SAMPLES * 3) }));
+  private trackJd = new Float64Array(ORBIT_SAMPLES);
   private orbitTint = new THREE.Color();
   private flight: Flight | null = null;
   private lastGmst: number | null = null;
@@ -860,27 +859,21 @@ export class SceneController {
         tr.for = -1;
         return;
       }
-      if (tr.for !== i || now - tr.at > 500) {
+      // The selected track is resampled every frame at fixed offsets from now, so it rides
+      // along with the object: samples fixed in space would let the chords beside a following
+      // camera crawl past it and jump at each resample. Its centre sample is the object's
+      // exact position, so close up the track runs through the model.
+      if (k === 0 || tr.for !== i || now - tr.at > 500) {
         const periodDays = Math.min(this.prop.info(i)[3], 1440) / 1440;
-        tr.pts.set(this.prop.track(i, jd - periodDays / 2, jd + periodDays / 2, ORBIT_SAMPLES));
+        const t = this.trackJd;
+        for (let j = 0; j < ORBIT_SAMPLES; j++) t[j] = jd + periodDays * orbitPhase(j, ORBIT_SAMPLES);
+        tr.pts.set(this.prop.track(i, t));
         tr.for = i;
         tr.at = now;
-        tr.jd0 = jd - periodDays / 2;
-        tr.days = periodDays;
       }
-      // samples are ~1° apart, so the chords miss the object by up to a few hundred metres:
-      // splice its exact position in, so close up the track runs through the model
-      const j = Math.floor(((jd - tr.jd0) / tr.days) * (ORBIT_SAMPLES - 1));
-      if (k === 0 && j >= 0 && j < ORBIT_SAMPLES - 1) {
-        const sp = this.spliced;
-        sp.set(tr.pts.subarray(0, 3 * (j + 1)));
-        sp.set(this.pos.subarray(3 * i, 3 * i + 3), 3 * (j + 1));
-        sp.set(tr.pts.subarray(3 * (j + 1)), 3 * (j + 2));
-        // dimmer once the model is up: close in, the track is a guide, not the subject
-        orbit.update(sp, ORBIT_SAMPLES + 1, this.orbitTint.copy(ORBIT_COLOR).multiplyScalar(1 - 0.65 * this.modelFade), cam);
-      } else {
-        orbit.update(tr.pts, ORBIT_SAMPLES, k === 0 ? ORBIT_COLOR : PARTNER_ORBIT_COLOR, cam);
-      }
+      // dimmer once the model is up: close in, the track is a guide, not the subject
+      const color = k === 0 ? this.orbitTint.copy(ORBIT_COLOR).multiplyScalar(1 - 0.65 * this.modelFade) : PARTNER_ORBIT_COLOR;
+      orbit.update(tr.pts, ORBIT_SAMPLES, color, cam);
     });
   }
 

@@ -17,7 +17,7 @@ import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { BODIES, type BodyId, type Orbiter } from '../sim/bodies';
 import { decodeEphemeris, osculating, span, stateAt, type Track } from '../sim/ephemeris';
 import { AU_KM, marsGeocentric, marsOrientation, moonGeocentric, moonOrientation, mul, mulMat, precession, transpose, type Mat3, type Vec3 } from '../sim/solar';
-import { OrbitPath } from './lines';
+import { OrbitPath, orbitPhase } from './lines';
 import { Planet, SmallMoon } from './planet';
 import { psf } from './sky';
 import { SpriteLayer } from './sprites';
@@ -353,7 +353,7 @@ export class SolarSystem {
     this.dots.commit(k, cam);
     this.rings.commit(nr, cam);
 
-    // orbits: one period centred on now, resampled twice a second
+    // orbits: one period centred on now, resampled twice a second (the selected one every frame)
     const now = performance.now();
     const refresh = now - this.pathAt > 500;
     if (refresh) this.pathAt = now;
@@ -376,7 +376,7 @@ export class SolarSystem {
         const [t0, t1] = span(s.track);
         const P = this.P;
         for (let j = 0; j < ORBIT_SAMPLES; j++) {
-          const t = jd - days / 2 + (days * j) / (ORBIT_SAMPLES - 1);
+          const t = jd + days * orbitPhase(j, ORBIT_SAMPLES);
           if (t < t0 || t > t1 || !stateAt(s.track, t, this.st)) {
             rel.pts[3 * j] = rel.pts[3 * j + 1] = rel.pts[3 * j + 2] = NaN;
             continue;

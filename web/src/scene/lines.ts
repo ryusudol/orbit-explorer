@@ -89,6 +89,18 @@ export class ThickPath {
 }
 
 /**
+ * Time of orbit sample `k` of `n`, as a fraction of the span: -0.5 to 0.5, now at
+ * the centre (n odd). The spacing grows linearly away from now, so a chord sags by
+ * a fixed share (~5e-5 rad in LEO at 361 samples) of its distance from the object:
+ * as smooth from a camera beside the object as from afar. Even 1° steps sag
+ * ~250 m, which right beside the track shows as kinks.
+ */
+export function orbitPhase(k: number, n: number): number {
+  const u = (2 * k) / (n - 1) - 1;
+  return 0.5 * u * Math.abs(u);
+}
+
+/**
  * A closed orbit as a thick additive polyline. Brightness doubles as opacity
  * (additive blending), so a per-vertex fade makes the track trail off behind
  * the object and lead brighter ahead of it.
@@ -123,8 +135,8 @@ export class OrbitPath {
   }
 
   /**
-   * points: `count` world positions sampled over one period, centred on now.
-   * Segments with a NaN end (decayed or invalid samples) are skipped.
+   * points: `count` world positions sampled over one period at `orbitPhase`,
+   * centred on now. Segments with a NaN end (decayed or invalid samples) are skipped.
    */
   update(points: Float64Array, count: number, color: THREE.Color, cam: THREE.Vector3) {
     const b = this.buffer, c = this.colors;
@@ -139,7 +151,7 @@ export class OrbitPath {
         b[6 * k + 3 * e + 1] = points[q + 1] - cam.y;
         b[6 * k + 3 * e + 2] = points[q + 2] - cam.z;
         // 0 one half-period behind, 1 at the object, ~0.55 one half-period ahead
-        const t = (s + e) / (count - 1) - 0.5;
+        const t = orbitPhase(s + e, count);
         const w = t < 0 ? 0.06 + 0.94 * (1 + t * 2) ** 2.2 : 1 - 0.45 * (t * 2) ** 0.8;
         c[6 * k + 3 * e] = color.r * w;
         c[6 * k + 3 * e + 1] = color.g * w;
