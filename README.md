@@ -6,20 +6,28 @@
 
 <p align="center"><img src="docs/media/orbit.webp" width="420" alt="The laser mesh flowing over the Atlantic at 10 minutes per second while the London–New York route re-routes"><br><sub>10 min/s: satellites move, the mesh rebuilds and the London → New York path re-routes.</sub></p>
 
+<p align="center"><b><a href="docs/media/orbit-explorer-x.mp4">▶ Watch the 55-second demo</a></b> <sub>(1080p, with sound)</sub></p>
+
 It also flies to **every planet, the Moon and out to the Oort cloud**. Every known moon of Mars and the giant planets (all 115 of Jupiter's, 290 of Saturn's, 28 of Uranus' and 16 of Neptune's) and every spacecraft orbiting another world (LRO, Danuri, MRO, Juno, BepiColombo arriving at Mercury, and more) fly on JPL's own trajectories. The Moon and Mars have 16k LRO and Viking maps with laser-altimeter relief, Mercury MESSENGER's, Venus Magellan's radar under its clouds, the giants Hubble's 2025 global maps and Saturn its rings. Out past Neptune lie the real Kuiper belt (7,299 objects), the heliosphere's edges, a model of the Oort cloud, and **Voyager 1 and 2** on their actual paths since 1977, 172 and 144 au out. A relay planner shows when a rover on the Moon or Mars can talk to Earth, and how long the signal takes.
 
 <p align="center"><img src="docs/media/moon-flight.webp" width="720" alt="The camera rises off the Earth, swings round past the Milky Way and the Sun, and falls toward the lit side of the Moon, where the lunar orbiters' paths appear"><br><sub>Earth to the Moon: the camera climbs away, turns toward the destination and arrives on the lit side, with the lunar orbiters' paths.</sub></p>
 
 <table>
   <tr>
-    <td><img src="docs/media/jupiter.jpg" alt="Jupiter from Hubble's December 2025 map, with the Great Red Spot near the limb, among the orbits of its moons and of Juno"></td>
+    <td><img src="docs/media/jupiter.jpg" alt="Jupiter from Hubble's December 2025 map, the Great Red Spot turned toward the camera, inside the orbits of its moons and Juno's polar orbit"></td>
     <td><img src="docs/media/saturn.jpg" alt="Saturn in October 2026, its rings nearly edge-on after the 2025 ring-plane crossing, with the orbits of its major moons"></td>
-    <td><img src="docs/media/outer-solar-system.jpg" alt="The heliosphere from outside: the termination shock and heliopause, the Kuiper belt, and the two Voyagers' paths leaving past the planets"></td>
   </tr>
   <tr>
     <td align="center"><sub><b>Jupiter</b> · Hubble OPAL, Dec 2025<br>115 moons and Juno</sub></td>
     <td align="center"><sub><b>Saturn</b> · rings near edge-on in 2026<br>290 moons, Cassini edges and gaps</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/outer-solar-system.jpg" alt="The heliosphere from outside: the termination shock and heliopause around the Kuiper belt and the dwarf planets, with Voyager 1 and 2 leaving in different directions"></td>
+    <td><img src="docs/media/oort-cloud.jpg" alt="The modelled Oort cloud seen from outside, a dense core around the Sun thinning out to the 100,000 au ring"></td>
+  </tr>
+  <tr>
     <td align="center"><sub><b>Leaving the Sun</b> · the Voyagers past the<br>termination shock, heliopause and Kuiper belt</sub></td>
+    <td align="center"><sub><b>The Oort cloud</b> · a model, 2,000 to 100,000 au<br>sunlight takes 1.6 years to reach its edge</sub></td>
   </tr>
 </table>
 
@@ -139,11 +147,14 @@ The globe fills the screen; the interface is a few pieces of type and thin-lined
 - **Away from the Earth**, the key under the headline doubles as switches: **Moons** hides every moon but the selected one, so the spacecraft among Jupiter's 115 moons are easy to find and pick, and **Orbits** (off at first) draws every orbiter's track, and the planets' from afar.
 - **Selecting** an object shows its live state and always draws its orbit, fading behind it and bright ahead. **Follow** flies the camera there along a great-circle arc and rides along; stopping zooms back out with the object still centred. Selecting a conjunction draws both objects' orbits, so the crossing geometry is visible.
 - **The time bar** is a mission timeline: ±24 h around now, with each screened conjunction marked where it happens. Click one to jump to 90 s before closest approach.
-- **Every world** is listed under the headline, inner worlds on the left and outer ones on the right, with how far each is now: click one to fly there (also **E**, **M** and **.** for the Earth, the Moon and Mars, **[** and **]** to step inward or outward, or click a world's name where it hangs in the sky). The panels change with the world: elsewhere, **Orbiters** (or **Moons & craft**) lists what is there with live distance and period, the big moons first and the rest folded into inner and captured irregular moons. Around the Moon and Mars, **Link to Earth** charts the next 24 hours at a landing site. It shows when the Earth is above the horizon (never at Chang'e 4 on the far side, always at Tranquility Base) and when each relay orbiter passes, with the one-way light time. The big moons are mapped globes, the small ones cratered bodies, and spacecraft get a model when followed: the Voyagers, Juno and BepiColombo their own.
+- **Every world** is listed top right under *Fly to*, outward from the Sun with the Moon under the Earth, with how far each is from the world you're at now (a mode's panel takes its place; on a phone the worlds are a strip in the header): click one to fly there (also **E**, **M** and **.** for the Earth, the Moon and Mars, **[** and **]** to step inward or outward, or click a world's name where it hangs in the sky). The panels change with the world: elsewhere, **Orbiters** (or **Moons & craft**) lists what is there with live distance and period, the big moons first and the rest folded into inner and captured irregular moons. Around the Moon and Mars, **Link to Earth** charts the next 24 hours at a landing site. It shows when the Earth is above the horizon (never at Chang'e 4 on the far side, always at Tranquility Base) and when each relay orbiter passes, with the one-way light time. The big moons are mapped globes, the small ones cratered bodies, and spacecraft get a model when followed: the Voyagers, Juno and BepiColombo their own.
 - **The Oort cloud** is the solar system seen from outside: the planets' and dwarf planets' orbits, the Voyagers' paths bending past the giants, the Kuiper belt, the termination shock and heliopause where the Voyagers crossed them, and the cloud itself, with distance rings in light-time from 1 to 100,000 au. Each part appears at the scale where it means something. **Voyager 1 and 2** are in the catalogue: the Catalogue panel lists them under *Beyond Earth orbit*, and **⌘K** finds them by name or by their NORAD numbers, 10321 and 10271.
 - **Venus** is drawn as it looks, a pale deck of cloud turning every four days; the **Radar surface** layer shows Magellan's map of the ground beneath.
 - **Layers** toggle the laser mesh, route, terminal visibility cones, coverage heatmap and the sky, and choose the reference frame: *Rotate with Earth* (ground fixed, satellites sweep over it) or *Fixed to stars* (orbital planes fixed, the Earth turns beneath them).
 - **Object groups** use Paul Tol's high-contrast scheme (Starlink blue, other satellites yellow, debris red), whose hues also differ in lightness, so they survive colour-blindness and greyscale. The dark blue is lifted on the globe and ringed in the legend to stay legible against black.
+
+![Mars with the Link to Earth panel open at Perseverance's site in Jezero crater: a one-way light time of 13 min 12 s, the Earth 74° up, and the next 24 hours of daylight, direct contact and passes by MRO, Mars Odyssey, Trace Gas Orbiter, Mars Express and Hope](docs/media/mars-relay.jpg)
+<p align="center"><sub><b>Link to Earth</b> at Jezero: the next 24 hours of daylight, direct contact with the Earth and passes by each of the five orbiters.</sub></p>
 
 **Each Starlink is drawn as its hardware generation.** The NORAD ID says which launch a satellite came from, and so which hardware it carries: V1.0/V1.5 (Falcon 9, 2019–23), V2 Mini including its Direct-to-Cell variant (Falcon 9, 2023 on), or V3 (Starship, from September 2026). Through mid-2023 SpaceX alternated V1.5 and V2 Mini launches, so the version comes from a table of ID ranges built from Jonathan McDowell's launch list (`starlinkVersion` in `web/src/sim/catalog.ts`), not a single cut-off. SpaceX hasn't published V3's layout; its model is an approximation from the reported ~7.5 m bus and ~60 m span.
 
