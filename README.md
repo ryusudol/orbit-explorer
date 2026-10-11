@@ -6,7 +6,7 @@
 
 <p align="center"><img src="docs/media/orbit.webp" width="420" alt="The laser mesh flowing over the Atlantic at 10 minutes per second while the London–New York route re-routes"><br><sub>10 min/s: satellites move, the mesh rebuilds and the London → New York path re-routes.</sub></p>
 
-<p align="center"><b><a href="docs/media/orbit-explorer-x.mp4">▶ Watch the 55-second demo</a></b> <sub>(1080p, with sound)</sub></p>
+<p align="center"><b><a href="docs/media/orbit-explorer-x.mp4">▶ Watch the 90-second demo</a></b> <sub>(1080p, 60 fps): the ISS, laser routing, a 34 m conjunction, the Moon and Mars, Jupiter and Saturn, out to the Oort cloud</sub></p>
 
 It also flies to **every planet, the Moon and out to the Oort cloud**. Every known moon of Mars and the giant planets (all 115 of Jupiter's, 290 of Saturn's, 28 of Uranus' and 16 of Neptune's) and every spacecraft orbiting another world (LRO, Danuri, MRO, Juno, BepiColombo arriving at Mercury, and more) fly on JPL's own trajectories. The Moon and Mars have 16k LRO and Viking maps with laser-altimeter relief, Mercury MESSENGER's, Venus Magellan's radar under its clouds, the giants Hubble's 2025 global maps and Saturn its rings. Out past Neptune lie the real Kuiper belt (7,299 objects), the heliosphere's edges, a model of the Oort cloud, and **Voyager 1 and 2** on their actual paths since 1977, 172 and 144 au out. A relay planner shows when a rover on the Moon or Mars can talk to Earth, and how long the signal takes.
 
