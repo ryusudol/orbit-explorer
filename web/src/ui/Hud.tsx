@@ -11,7 +11,8 @@ import { ModePanel } from './ModePanel';
 import { SelectionCard } from './SelectionCard';
 import { Timeline } from './Timeline';
 import { ZoomControls } from './ZoomControls';
-import { MODES_BY_WORLD, OrbiterCard, TravelCaption, WorldTitle } from './Worlds';
+import { MODES_BY_WORLD, OrbiterCard, TravelCaption, WorldGo, WorldTitle } from './Worlds';
+import { BODY_ORDER } from '../sim/bodies';
 
 /** At or below this width the layout is a phone's: time on top, panels as a bottom sheet. */
 const MOBILE = 760;
@@ -19,8 +20,9 @@ const MOBILE = 760;
 const SHORTCUTS: [string, string][] = [
   ['⌘ K  or  /', 'Search objects and actions'],
   ['Space', 'Play or pause time'],
-  ['1 – 5', 'Explore, Routing, Conjunctions, Coverage, Catalogue (at the Moon and Mars: Explore, Orbiters, Link to Earth)'],
+  ['1 – 5', 'Explore, Routing, Conjunctions, Coverage, Catalogue (elsewhere: Explore, Orbiters, and Link to Earth at the Moon and Mars)'],
   ['E  or  M  or  .', 'Fly to the Earth, the Moon or Mars'],
+  ['[  or  ]', 'Fly to the next world in, or out, as far as the Oort cloud'],
   ['F', 'Follow the selected object'],
   ['Esc', 'Stop following, then clear the selection'],
   ['R', 'Reset the view'],
@@ -92,6 +94,11 @@ export function Hud() {
         else getController()?.flyTo(s.selected);
       } else if (key === 'e' || key === 'm' || key === '.') {
         getController()?.travelTo(key === 'e' ? 'earth' : key === 'm' ? 'moon' : 'mars');
+      } else if (key === '[' || key === ']') {
+        // step inward or outward through the worlds, from where we are (or are heading)
+        const from = BODY_ORDER.indexOf(s.travel?.to ?? s.body);
+        const to = BODY_ORDER[Math.max(0, Math.min(BODY_ORDER.length - 1, from + (key === ']' ? 1 : -1)))];
+        if (to !== (s.travel?.to ?? s.body)) getController()?.travelTo(to);
       } else if (key === 'r') {
         getController()?.resetView();
       } else if (key === 'h') {
@@ -160,7 +167,7 @@ export function Hud() {
   }, [hidden, collapsed, tab]);
 
   return (
-    <div className={`hud${hidden ? ' ui-hidden' : ''}${selected !== null || orbiter !== null ? ' has-selection' : ''}`} ref={rootRef}>
+    <div className={`hud${hidden ? ' ui-hidden' : ''}${selected !== null || orbiter !== null ? ' has-selection' : ''}${tab !== 'explore' || layers ? ' panel-open' : ''}`} ref={rootRef}>
       {/* soft black falloffs so type can sit directly on the scene, no bars */}
       <div className="vignette top" aria-hidden="true" />
       <div className="vignette bottom" aria-hidden="true" />
@@ -187,6 +194,7 @@ export function Hud() {
         </div>
       )}
 
+      <WorldGo />
       <ModePanel collapsed={collapsed} onCollapse={setCollapsed} />
       <Timeline />
       <ZoomControls hidden={hidden} onToggleUi={() => setHidden((h) => !h)} />
@@ -209,8 +217,9 @@ export function Hud() {
               </button>
             </header>
             <p className="modal-lede">
-              Every tracked object in Earth orbit, propagated live with SGP4 in your browser, and the spacecraft at the Moon and Mars on their
-              missions’ own trajectories. Drag to orbit, scroll or pinch to zoom, click any dot to inspect it, and pick a world at the top to fly there.
+              Every tracked object in Earth orbit, propagated live with SGP4 in your browser; every planet, every known moon and the spacecraft
+              around them on JPL’s trajectories; and the Voyagers on their way out past the Kuiper belt toward the Oort cloud. Drag to orbit, scroll
+              or pinch to zoom, click any dot to inspect it, and pick a world at the top right to fly there.
             </p>
             <dl className="shortcuts">
               {SHORTCUTS.map(([k, v]) => (
@@ -241,8 +250,10 @@ export function Hud() {
               . Starlink hardware generations: Jonathan McDowell, planet4589.org. Earth: NASA Blue Marble Next Generation and
               Black Marble 2016. Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020, from ESA Gaia DR2. Stars:
               ESA Hipparcos catalogue. Moon: NASA LRO (LROC WAC colour, LOLA elevation) via the SVS CGI Moon Kit. Mars: Viking colour mosaic (USGS
-              Astrogeology), MGS MOLA elevation (PDS). Lunar and Martian orbiters and moons: JPL Horizons. SGP4, frames, routing and screening: own
-              Rust/WASM.
+              Astrogeology), MGS MOLA elevation (PDS). Mercury: MESSENGER MDIS colour and elevation (USGS). Venus: Magellan radar and topography
+              (USGS). Jupiter, Saturn, Uranus and Neptune: Hubble OPAL global maps (Simon et al., STScI). Moons: Galileo, Voyager and Cassini mosaics
+              (USGS Astrogeology). Planets: VSOP87 (IMCCE). Orbiters, moons and the Voyagers: JPL Horizons. Kuiper belt: JPL Small-Body Database.
+              SGP4, frames, routing and screening: own Rust/WASM.
             </p>
           </div>
         </div>

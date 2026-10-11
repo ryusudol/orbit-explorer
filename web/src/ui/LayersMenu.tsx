@@ -3,6 +3,7 @@ import { useStore, type Layers } from '../state/store';
 import { Segmented } from './common';
 import { Icon, type IconName } from './icons';
 import { the } from './Worlds';
+import { BODIES } from '../sim/bodies';
 
 const TILES: { key: keyof Layers; label: string; icon: IconName; hint: string }[] = [
   { key: 'links', label: 'Laser links', icon: 'mesh', hint: 'Starlink inter-satellite mesh' },
@@ -11,11 +12,13 @@ const TILES: { key: keyof Layers; label: string; icon: IconName; hint: string }[
   { key: 'coverage', label: 'Coverage', icon: 'heat', hint: 'Satellites in view, heatmap' },
   { key: 'sky', label: 'Milky Way & Sun', icon: 'stars', hint: 'NASA sky map, true Sun' },
 ];
-/** Around the Moon and Mars only the sky and the orbits apply. */
+/** Away from the Earth only the sky and the orbits apply (and at Venus, its radar map). */
 const WORLD_TILES: typeof TILES = [
-  { key: 'orbits', label: 'All orbits', icon: 'route', hint: 'Every orbiter’s track, not just the selected one' },
+  { key: 'orbits', label: 'All orbits', icon: 'route', hint: 'Every orbiter’s track, and the planets’ from afar' },
   { key: 'sky', label: 'Milky Way & Sun', icon: 'stars', hint: 'NASA sky map, true Sun' },
 ];
+const MOONS_TILE: (typeof TILES)[number] = { key: 'moons', label: 'Moons', icon: 'moon', hint: 'Hide them to pick out the spacecraft' };
+const VENUS_TILE: (typeof TILES)[number] = { key: 'radar', label: 'Radar surface', icon: 'eye', hint: 'Magellan’s map, under the clouds' };
 
 /** Popover anchored under the Layers button; closes on outside click or Esc. */
 export function LayersMenu({ onClose }: { onClose: () => void }) {
@@ -23,8 +26,9 @@ export function LayersMenu({ onClose }: { onClose: () => void }) {
   const setLayer = useStore((s) => s.setLayer);
   const body = useStore((s) => s.body);
   const ref = useRef<HTMLDivElement>(null);
-  const tiles = body === 'earth' ? TILES : WORLD_TILES;
-  const name = body === 'earth' ? 'Earth' : body === 'moon' ? 'the Moon' : 'Mars';
+  const hasMoons = BODIES[body].orbiters.some((o) => o.kind === 'moon');
+  const tiles = body === 'earth' ? TILES : body === 'venus' ? [...WORLD_TILES, VENUS_TILE] : hasMoons ? [WORLD_TILES[0], MOONS_TILE, WORLD_TILES[1]] : WORLD_TILES;
+  const B = BODIES[body];
 
   useEffect(() => {
     const down = (e: PointerEvent) => {
@@ -58,16 +62,18 @@ export function LayersMenu({ onClose }: { onClose: () => void }) {
         label="Reference frame"
         value={layers.earthFixed ? 'earth' : 'stars'}
         options={[
-          { v: 'earth', label: `Rotate with ${body === 'moon' ? 'Moon' : body === 'mars' ? 'Mars' : 'Earth'}` },
+          { v: 'earth', label: body === 'oort' ? 'Turn with the stars' : `Rotate with ${B.name}` },
           { v: 'stars', label: 'Fixed to stars' },
         ]}
         onChange={(v) => setLayer('earthFixed', v === 'earth')}
       />
       <p className="popover-note">
-        {body !== 'earth'
-          ? layers.earthFixed
-            ? `The camera turns with ${the(body)}: the ground stays put while orbiters sweep over it.`
-            : `The camera holds still against the stars: orbital planes stay fixed and ${name} turns beneath them, once ${body === 'moon' ? 'a month' : 'a sol (24 h 37 min)'}.`
+        {body === 'oort'
+          ? 'Out here nothing turns: the view is fixed to the stars either way.'
+          : body !== 'earth'
+            ? layers.earthFixed
+              ? `The camera turns with ${the(body)}: the ${B.kind === 'planet' && ['jupiter', 'saturn', 'uranus', 'neptune'].includes(body) ? 'cloud tops stay' : 'ground stays'} put while orbiters sweep over ${B.kind === 'planet' && ['jupiter', 'saturn', 'uranus', 'neptune'].includes(body) ? 'them' : 'it'}.`
+              : `The camera holds still against the stars: orbital planes stay fixed and ${the(body)} turns beneath them, ${B.turns ?? ''}.`
           : layers.earthFixed
             ? 'The camera turns with the planet: cities stay put while satellites sweep over them and the stars wheel past.'
             : 'The camera holds still against the stars: orbital planes stay fixed and the Earth spins beneath them, once a day.'}

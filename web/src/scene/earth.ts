@@ -8,6 +8,7 @@
 
 import * as THREE from 'three/webgpu';
 import { abs, cameraPosition, dot, float, max, mix, normalView, normalWorld, normalize, positionLocal, positionWorld, pow, smoothstep, texture, uniform, vec3 } from 'three/tsl';
+import { highp } from './precision';
 import { geodeticToEcef } from '../sim/physics';
 import { ALL_TILES, GRID, PatchUv } from './tiles';
 
@@ -83,6 +84,7 @@ export class Earth {
     // atmosphere: back faces of a slightly larger shell, brightest at the limb,
     // fading outward, lit on the day side
     const atmoMat = new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    atmoMat.contextNode = highp(); // model-view in float64: the camera can be 10¹⁰ km from the origin
     const limb = smoothstep(0.0, 0.3, normalView.z.negate());
     const lit = smoothstep(-0.35, 0.4, dot(normalize(positionLocal), this.sunEcef)).mul(0.85).add(0.15);
     atmoMat.colorNode = vec3(0.3, 0.58, 1.0).mul(pow(limb, float(1.6))).mul(lit).mul(0.9);
@@ -116,6 +118,7 @@ export class Earth {
     const glint = vec3(0.95, 0.93, 0.88).mul(pow(hdot, float(90)).mul(0.16).add(pow(hdot, float(14)).mul(0.035))).mul(water).mul(dayAmt);
 
     const mat = new THREE.MeshBasicNodeMaterial();
+    mat.contextNode = highp(); // model-view in float64: the camera can be 10¹⁰ km from the origin
     mat.colorNode = mix(nightColor, dayColor, dayAmt).add(rim).add(twilight).add(glint);
     return mat;
   }

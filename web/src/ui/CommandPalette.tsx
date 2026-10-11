@@ -6,9 +6,12 @@ import { int, km, regime } from './format';
 import { GROUP_SHORT } from './groups';
 import { Icon, type IconName } from './icons';
 import { BODIES, BODY_ORDER } from '../sim/bodies';
-import { MOON_HEX, SPACECRAFT_HEX, WORLD_HEX, the } from './Worlds';
+import { MOON_HEX, SPACECRAFT_HEX, WORLD_HEX, WORLD_KEY, the } from './Worlds';
 
 /** Well-known objects, by NORAD ID, for one-keystroke exploring. */
+/** Spacecraft beyond Earth orbit that still have catalogue numbers: found by NORAD ID too. */
+const DEEP_NORAD: Record<number, number> = { 10321: -31, 10271: -32, 43653: -121, 37773: -61 };
+
 const FEATURED: { norad: number; name: string; note: string }[] = [
   { norad: 25544, name: 'International Space Station', note: 'Crewed, since 1998' },
   { norad: 48274, name: 'Tiangong', note: 'China’s space station' },
@@ -35,6 +38,15 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const layers = useStore((s) => s.layers);
   const body = useStore((s) => s.body);
   const c = getController()?.catalog;
+  // every moon of every world, once the snapshots are in (fetched when the palette first opens)
+  const [deep, setDeep] = useState<Awaited<ReturnType<NonNullable<ReturnType<typeof getController>>['searchOrbiters']>>>([]);
+  useEffect(() => {
+    let live = true;
+    getController()?.searchOrbiters().then((list) => live && setDeep(list));
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const icon = (name: IconName) => (
     <span className="cmd-icon">
@@ -51,20 +63,34 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       id: `w-${b}`,
       section: 'Worlds',
       title: `Fly to ${the(b)}`,
-      meta: b === 'earth' ? 'E' : b === 'moon' ? 'M' : '.',
+      meta: WORLD_KEY[b] ?? (BODIES[b].kind === 'region' ? 'beyond the planets' : undefined),
       lead: <Dot color={WORLD_HEX[b]} />,
       run: () => getController()?.travelTo(b),
     }));
-    const orbiters = (['moon', 'mars'] as const).flatMap((b) =>
+    const section = (b: (typeof BODY_ORDER)[number]) => (b === 'oort' ? 'Leaving the solar system' : `Around ${the(b)}`);
+    const goTo = (b: (typeof BODY_ORDER)[number], id: number) => () => getController()?.travelTo(b, () => getController()?.selectOrbiter(id, true));
+    const orbiters = BODY_ORDER.flatMap((b) =>
       BODIES[b].orbiters.map<Item>((o) => ({
         id: `orb${o.id}`,
-        section: `Around ${the(b)}`,
+        section: section(b),
         title: o.name,
         meta: o.by,
         lead: <Dot color={o.kind === 'moon' ? MOON_HEX : SPACECRAFT_HEX} />,
-        run: () => getController()?.travelTo(b, () => getController()?.selectOrbiter(o.id, true)),
+        run: goTo(b, o.id),
       })),
     );
+    // the snapshot's moons that BODIES doesn't caption
+    const listed = new Set(orbiters.map((o) => o.id));
+    const moons = deep
+      .filter((o) => !listed.has(`orb${o.id}`))
+      .map<Item>((o) => ({
+        id: `orb${o.id}`,
+        section: section(o.body),
+        title: o.name,
+        meta: o.kind === 'moon' ? `Moon${o.found ? ` · found ${o.found.year}` : ''}` : 'Spacecraft',
+        lead: <Dot color={o.kind === 'moon' ? MOON_HEX : SPACECRAFT_HEX} />,
+        run: goTo(o.body, o.id),
+      }));
     const objectMeta = (i: number) => `${alt ? `${regime(alt[i])} · ${km(alt[i])} · ` : ''}#${c.ids[i]}`;
     const actions: Item[] = [
       { id: 'reset', section: 'View', title: 'Reset view', meta: 'R', lead: icon('home'), run: () => getController()?.resetView() },
@@ -94,13 +120,17 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           lead: icon('satellite'),
           run: fly(f.i),
         }));
-      const here = body === 'earth' ? featured : orbiters.filter((o) => o.section === `Around ${the(body)}`);
-      return [...worlds, ...here, ...actions];
+      const here = body === 'earth' ? featured : orbiters.filter((o) => o.section === section(body));
+      // the worlds are listed on screen already: here they come last
+      return [...here, ...actions, ...worlds];
     }
 
     // a NORAD ID, also as the cards show it ("#100224") or "NORAD 100224": the exact match first,
     // then IDs it begins (while typing one out), then names containing the digits (STARLINK-31002)
     const digits = /^(?:#|NORAD\s*)?(\d+)$/.exec(query)?.[1];
+    // a deep-space craft's catalogue number flies there instead
+    const deepId = digits ? DEEP_NORAD[Number(digits)] : undefined;
+    const deepHit = deepId === undefined ? [] : orbiters.filter((o) => o.id === `orb${deepId}`).map((o) => ({ ...o, section: 'Objects', meta: `NORAD ${digits} · ${o.meta}` }));
     const hits: number[] = [];
     const exact = digits ? c.ids.indexOf(Number(digits)) : -1;
     if (exact >= 0) hits.push(exact);
@@ -120,8 +150,12 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     }));
     const words = query.toLowerCase();
     const named = (list: Item[]) => list.filter((a) => a.title.toLowerCase().includes(words) || (a.meta ?? '').toLowerCase().includes(words));
-    return [...named(worlds), ...named(orbiters), ...objects, ...actions.filter((a) => a.title.toLowerCase().includes(words))];
-  }, [q, c, alt, layers, body]);
+    // provisional names are typed many ways: "S/2004 S 21", "s2004s21"
+    const squash = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const sq = squash(words);
+    const namedMoons = sq.length >= 2 ? moons.filter((m) => squash(m.title).includes(sq)).slice(0, 12) : [];
+    return [...deepHit, ...named(worlds), ...named(orbiters), ...namedMoons, ...objects, ...actions.filter((a) => a.title.toLowerCase().includes(words))];
+  }, [q, c, alt, layers, body, deep]);
 
   useEffect(() => inputRef.current?.focus(), []);
   useEffect(() => {

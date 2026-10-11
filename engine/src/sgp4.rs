@@ -15,6 +15,32 @@ const X2O3: f64 = 2.0 / 3.0;
 /// Divide-by-zero guard for 180 deg inclination.
 const TEMP4: f64 = 1.5e-12;
 
+/// `x % TWOPI` without libm's `fmod`, which is exact but slow when `x` is many
+/// turns. Same sign and range as `%`; differs from it only in the last bits.
+#[inline]
+fn rem_2pi(x: f64) -> f64 {
+    let r = x - TWOPI * (x / TWOPI).trunc();
+    if r != 0.0 && (r < 0.0) != (x < 0.0) {
+        r + TWOPI.copysign(x)
+    } else if r.abs() >= TWOPI {
+        r - TWOPI.copysign(r)
+    } else {
+        r
+    }
+}
+
+/// Sine and cosine of `a + d` from those of `a`, for small `d` (|d| < 1e-2): the
+/// Taylor series through d^5 (sine) and d^6 (cosine) is then exact to below
+/// double rounding (error < 3e-18), and costs a few multiplies instead of a
+/// sin/cos call.
+#[inline]
+fn rotate_small(sin_a: f64, cos_a: f64, d: f64) -> (f64, f64) {
+    let d2 = d * d;
+    let sd = d * (1.0 - d2 / 6.0 * (1.0 - d2 / 20.0));
+    let cd = 1.0 - d2 / 2.0 * (1.0 - d2 / 12.0 * (1.0 - d2 / 30.0));
+    (sin_a * cd + cos_a * sd, cos_a * cd - sin_a * sd)
+}
+
 /// Gravity model constants. TLEs are fitted with WGS-72, so that is the default.
 #[derive(Clone, Copy, Debug)]
 pub struct Gravity {
@@ -198,6 +224,13 @@ pub struct Satrec {
     pub mo: f64,
     pub no_kozai: f64,
     pub no_unkozai: f64,
+    /// (xke / no_unkozai)^(2/3), sin(inclo) and cos(inclo), kept from `init` for
+    /// `propagate`: unless a deep-space term moves them, the mean motion and
+    /// inclination there are these epoch values, so it needn't call powf, sin
+    /// and cos (software routines in WebAssembly) on every step
+    ao: f64,
+    sinio: f64,
+    cosio: f64,
 
     grav: GravityFields,
 
@@ -348,6 +381,7 @@ impl Satrec {
 
         let ao = (g.xke / self.no_unkozai).powf(X2O3);
         let sinio = self.inclo.sin();
+        (self.ao, self.sinio, self.cosio) = (ao, sinio, cosio);
         let po = ao * omeosq;
         let con42 = 1.0 - 5.0 * cosio2;
         self.con41 = -con42 - cosio2 - cosio2;
@@ -1104,8 +1138,9 @@ impl Satrec {
             self.error = error::MEAN_MOTION;
             return Err(self.error);
         }
-        let am = (g.xke / nm).powf(X2O3) * tempa * tempa;
-        nm = g.xke / am.powf(1.5);
+        // (xke / nm)^(2/3), kept from init while nm is the epoch value; am^1.5 as am * sqrt(am)
+        let am = if nm == self.no_unkozai { self.ao } else { (g.xke / nm).powf(X2O3) } * tempa * tempa;
+        nm = g.xke / (am * am.sqrt());
         em -= tempe;
 
         if !(-0.001..1.0).contains(&em) {
@@ -1118,10 +1153,10 @@ impl Satrec {
         mm += self.no_unkozai * templ;
         let mut xlm = mm + argpm + nodem;
 
-        nodem %= TWOPI;
-        argpm %= TWOPI;
-        xlm %= TWOPI;
-        mm = (xlm - argpm - nodem) % TWOPI;
+        nodem = rem_2pi(nodem);
+        argpm = rem_2pi(argpm);
+        xlm = rem_2pi(xlm);
+        mm = rem_2pi(xlm - argpm - nodem);
 
         // recover singly averaged mean elements
         self.am = am;
@@ -1132,8 +1167,7 @@ impl Satrec {
         self.mm = mm;
         self.nm = nm;
 
-        let sinim = inclm.sin();
-        let cosim = inclm.cos();
+        let (sinim, cosim) = if inclm == self.inclo { (self.sinio, self.cosio) } else { inclm.sin_cos() };
 
         // add lunar-solar periodics
         let mut ep = em;
@@ -1159,8 +1193,7 @@ impl Satrec {
 
         // long period periodics
         if self.deep_space {
-            sinip = xincp.sin();
-            cosip = xincp.cos();
+            (sinip, cosip) = xincp.sin_cos();
             self.aycof = -0.5 * g.j3oj2 * sinip;
             self.xlcof = if (cosip + 1.0).abs() > 1.5e-12 {
                 -0.25 * g.j3oj2 * sinip * (3.0 + 5.0 * cosip) / (1.0 + cosip)
@@ -1168,21 +1201,23 @@ impl Satrec {
                 -0.25 * g.j3oj2 * sinip * (3.0 + 5.0 * cosip) / TEMP4
             };
         }
-        let axnl = ep * argpp.cos();
+        let (sinargpp, cosargpp) = argpp.sin_cos();
+        let axnl = ep * cosargpp;
         let mut temp = 1.0 / (am * (1.0 - ep * ep));
-        let aynl = ep * argpp.sin() + temp * self.aycof;
+        let aynl = ep * sinargpp + temp * self.aycof;
         let xl = mp + argpp + nodep + temp * self.xlcof * axnl;
 
         // solve Kepler's equation
-        let u = (xl - nodep) % TWOPI;
+        let u = rem_2pi(xl - nodep);
         let mut eo1 = u;
         let mut tem5: f64 = 9999.9;
         let mut ktr = 1;
         let mut sineo1 = 0.0;
         let mut coseo1 = 0.0;
         while tem5.abs() >= 1.0e-12 && ktr <= 10 {
-            sineo1 = eo1.sin();
-            coseo1 = eo1.cos();
+            // after the first pass the Newton step is small, so the new sine and
+            // cosine follow from the old ones without a sin/cos call
+            (sineo1, coseo1) = if ktr > 1 && tem5.abs() < 1e-2 { rotate_small(sineo1, coseo1, tem5) } else { eo1.sin_cos() };
             tem5 = 1.0 - coseo1 * axnl - sineo1 * aynl;
             tem5 = (u - aynl * coseo1 + axnl * sineo1 - eo1) / tem5;
             if tem5.abs() >= 0.95 {
@@ -1209,7 +1244,6 @@ impl Satrec {
         temp = esine / (1.0 + betal);
         let sinu = am / rl * (sineo1 - aynl - axnl * temp);
         let cosu = am / rl * (coseo1 - axnl + aynl * temp);
-        let mut su = sinu.atan2(cosu);
         let sin2u = (cosu + cosu) * sinu;
         let cos2u = 1.0 - 2.0 * sinu * sinu;
         temp = 1.0 / pl;
@@ -1224,19 +1258,25 @@ impl Satrec {
             self.x7thm1 = 7.0 * cosisq - 1.0;
         }
         let mrt = rl * (1.0 - 1.5 * temp2 * betal * self.con41) + 0.5 * temp1 * self.x1mth2 * cos2u;
-        su -= 0.25 * temp2 * self.x7thm1 * sin2u;
+        let dsu = 0.25 * temp2 * self.x7thm1 * sin2u;
         let xnode = nodep + 1.5 * temp2 * cosip * sin2u;
-        let xinc = xincp + 1.5 * temp2 * cosip * sinip * cos2u;
+        let dinc = 1.5 * temp2 * cosip * sinip * cos2u;
+        let xinc = xincp + dinc;
         let mvt = rdotl - nm * temp1 * self.x1mth2 * sin2u / g.xke;
         let rvdot = rvdotl + nm * temp1 * (self.x1mth2 * cos2u + 1.5 * self.con41) / g.xke;
 
-        // orientation vectors
-        let sinsu = su.sin();
-        let cossu = su.cos();
-        let snod = xnode.sin();
-        let cnod = xnode.cos();
-        let sini = xinc.sin();
-        let cosi = xinc.cos();
+        // orientation vectors. The reference takes su = atan2(sinu, cosu) - dsu and
+        // then its sine and cosine; the angle-difference identity gives the same
+        // two numbers from (sinu, cosu) directly, without the atan2.
+        let rnorm = 1.0 / (sinu * sinu + cosu * cosu).sqrt();
+        let (sinu, cosu) = (sinu * rnorm, cosu * rnorm);
+        let (sind, cosd) = dsu.sin_cos();
+        let sinsu = sinu * cosd - cosu * sind;
+        let cossu = cosu * cosd + sinu * sind;
+        let (snod, cnod) = xnode.sin_cos();
+        // xinc is xincp plus a small short-period term, and sinip, cosip are its
+        // sine and cosine (|dinc| ~ J2 ~ 1e-3)
+        let (sini, cosi) = if dinc.abs() < 1e-2 { rotate_small(sinip, cosip, dinc) } else { xinc.sin_cos() };
         let xmx = -snod * cosi;
         let xmy = cnod * cosi;
         let ux = xmx * sinsu + cnod * cossu;

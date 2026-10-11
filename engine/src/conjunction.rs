@@ -1,7 +1,7 @@
 //! Conjunction screening over the whole catalogue.
 //!
-//! Every `step` seconds all objects are propagated and bucketed in a spatial
-//! hash. Two objects that pass within `threshold` of each other at time of
+//! Every `step` seconds all objects are propagated and sorted into a spatial
+//! grid. Two objects that pass within `threshold` of each other at time of
 //! closest approach (TCA) are, at the nearest sample, at most
 //! `threshold + v_rel * step / 2` apart, so a search radius built from a bound
 //! on v_rel can never miss an encounter. Each surviving pair gets a linear TCA
@@ -16,8 +16,8 @@
 //! at ~17 km/s, which a single 16 km/s radius once let slip between samples.
 
 use crate::batch::Batch;
-use crate::frames::{dot, norm, sub, v3};
-use crate::grid::{brute_force_pairs, SpatialHash};
+use crate::frames::{dot, norm, sub, v3, V3};
+use crate::grid::{brute_force_pairs, SpatialGrid};
 use crate::sgp4::{Gravity, Satrec};
 use std::collections::HashMap;
 
@@ -62,13 +62,16 @@ pub fn top_speed(sat: &Satrec, grav: &Gravity) -> f64 {
 
 pub struct Screener {
     pub batch: Batch,
-    grid: SpatialHash,
+    grid: SpatialGrid,
     /// per object: top speed (km/s), and whether it can exceed `V_SLOW`
     top_speed: Vec<f64>,
     fast: Vec<bool>,
     /// the fast objects, and the fastest top speed of all
     fast_list: Vec<u32>,
     v_top: f64,
+    /// per-step scratch: velocity and `fast` in the grid's slot order
+    slot_vel: Vec<V3>,
+    slot_fast: Vec<bool>,
     events: HashMap<u64, Event>,
     formations: HashMap<u64, ()>,
     pub stats: Stats,
@@ -76,7 +79,9 @@ pub struct Screener {
     jd0: f64,
     jd_end: f64,
     step_s: f64,
-    total_steps: u32,
+    /// this screener's share of the window's samples, `[first_step, end_step)`
+    first_step: u32,
+    end_step: u32,
     threshold_km: f64,
 }
 
@@ -89,29 +94,43 @@ impl Screener {
         let v_top = top_speed.iter().copied().fold(V_SLOW, f64::max);
         Screener {
             batch,
-            grid: SpatialHash::new(100.0),
+            grid: SpatialGrid::new(100.0),
             top_speed,
             fast,
             fast_list,
             v_top,
+            slot_vel: Vec::new(),
+            slot_fast: Vec::new(),
             events: HashMap::new(),
             formations: HashMap::new(),
             stats: Stats::default(),
             jd0: 0.0,
             jd_end: 0.0,
             step_s: 60.0,
-            total_steps: 0,
+            first_step: 0,
+            end_step: 0,
             threshold_km: 5.0,
         }
     }
 
     /// Start screening `[jd0, jd0 + duration_min]`.
     pub fn begin(&mut self, jd0: f64, duration_min: f64, step_s: f64, threshold_km: f64) {
+        self.begin_part(jd0, duration_min, step_s, threshold_km, 0, 1);
+    }
+
+    /// Start screening part `part` of `parts` of the window: a contiguous share of
+    /// its samples. Events are still kept for the whole window, so merging the
+    /// parts' events by pair, keeping the smallest miss, gives exactly what one
+    /// `begin` over the whole window finds.
+    pub fn begin_part(&mut self, jd0: f64, duration_min: f64, step_s: f64, threshold_km: f64, part: u32, parts: u32) {
+        assert!(part < parts);
         self.jd0 = jd0;
         self.jd_end = jd0 + duration_min / 1440.0;
         self.step_s = step_s;
         self.threshold_km = threshold_km;
-        self.total_steps = ((duration_min * 60.0) / step_s).ceil() as u32 + 1;
+        let total = ((duration_min * 60.0) / step_s).ceil() as u64 + 1;
+        self.first_step = (total * part as u64 / parts as u64) as u32;
+        self.end_step = (total * (part as u64 + 1) / parts as u64) as u32;
         self.events.clear();
         self.formations.clear();
         self.stats = Stats::default();
@@ -119,18 +138,23 @@ impl Screener {
     }
 
     pub fn progress(&self) -> f64 {
-        if self.total_steps == 0 {
+        let share = self.end_step - self.first_step;
+        if share == 0 {
             1.0
         } else {
-            self.stats.steps as f64 / self.total_steps as f64
+            self.stats.steps as f64 / share as f64
         }
     }
 
     /// Run up to `max_steps` more samples. Returns progress in 0..1.
     pub fn advance(&mut self, max_steps: u32) -> f64 {
-        let end = (self.stats.steps + max_steps).min(self.total_steps);
-        while self.stats.steps < end {
-            let jd = self.jd0 + self.stats.steps as f64 * self.step_s / 86400.0;
+        let end = self.end_step.min((self.first_step + self.stats.steps).saturating_add(max_steps));
+        loop {
+            let k = self.first_step + self.stats.steps;
+            if k >= end {
+                break;
+            }
+            let jd = self.jd0 + k as f64 * self.step_s / 86400.0;
             self.screen_sample(jd);
             self.stats.steps += 1;
         }
@@ -152,22 +176,32 @@ impl Screener {
         let mut n_pairs = 0u64;
         let formations = &mut self.formations;
         let mut n_form = 0u64;
-        let mut consider = |i: u32, j: u32| {
+        let mut consider = |i: u32, j: u32, pi: V3, pj: V3, vi: V3, vj: V3| {
             n_pairs += 1;
-            match sample_pair(pos, vel, i, j, half, threshold) {
+            match sample_pair(pi, pj, vi, vj, half, threshold) {
                 Sampled::Formation => {
                     if formations.insert(key(i, j), ()).is_none() {
                         n_form += 1;
                     }
                 }
-                Sampled::Candidate(tau) => candidates.push((i, j, jd + tau / 86400.0)),
+                Sampled::Candidate(tau) => candidates.push((i.min(j), i.max(j), jd + tau / 86400.0)),
                 Sampled::Skip => {}
             }
         };
-        // pairs of objects that never exceed V_SLOW: the grid's own radius bounds them
-        self.grid.for_each_pair_within(pos, reach, |i, j, _| {
-            if !fast[i as usize] && !fast[j as usize] {
-                consider(i, j);
+        // pairs of objects that never exceed V_SLOW: the grid's own radius bounds them.
+        // Velocities and flags are gathered into the grid's slot order first, so the
+        // sieve reads everything sequentially.
+        let order = self.grid.order();
+        let spos = self.grid.positions();
+        self.slot_vel.clear();
+        self.slot_vel.extend(order.iter().map(|&i| v3(vel, i as usize)));
+        self.slot_fast.clear();
+        self.slot_fast.extend(order.iter().map(|&i| fast[i as usize]));
+        let (svel, sfast) = (&self.slot_vel, &self.slot_fast);
+        self.grid.for_each_slot_pair_within(reach, |a, b, _| {
+            let (a, b) = (a as usize, b as usize);
+            if !sfast[a] && !sfast[b] {
+                consider(order[a], order[b], spos[a], spos[b], svel[a], svel[b]);
             }
         });
         // a fast object can close on anything at up to its top speed plus the fastest
@@ -177,9 +211,10 @@ impl Screener {
                 continue;
             }
             let radius = threshold + (self.top_speed[f as usize] + self.v_top) * half;
-            self.grid.for_each_near(pos, v3(pos, f as usize), radius, |j, _| {
+            self.grid.for_each_near(v3(pos, f as usize), radius, |j, _| {
                 if j != f && !(fast[j as usize] && j < f) {
-                    consider(f.min(j), f.max(j));
+                    let (f, j) = (f as usize, j as usize);
+                    consider(f as u32, j as u32, v3(pos, f), v3(pos, j), v3(vel, f), v3(vel, j));
                 }
             });
         }
@@ -235,10 +270,10 @@ impl Screener {
 
     /// Instantaneous proximity pairs at the last propagated state (grid).
     pub fn grid_pairs_now(&mut self, radius: f64) -> u64 {
-        let mut grid = SpatialHash::new(radius);
+        let mut grid = SpatialGrid::new(radius);
         grid.build(&self.batch.pos, &self.batch.ok);
         let mut n = 0u64;
-        grid.for_each_pair_within(&self.batch.pos, radius, |_, _, _| n += 1);
+        grid.for_each_pair_within(radius, |_, _, _| n += 1);
         n
     }
 
@@ -260,32 +295,37 @@ enum Sampled {
 }
 
 #[inline]
-fn sample_pair(pos: &[f64], vel: &[f64], i: u32, j: u32, half: f64, threshold: f64) -> Sampled {
-    let dr = sub(v3(pos, j as usize), v3(pos, i as usize));
-    let dv = sub(v3(vel, j as usize), v3(vel, i as usize));
+fn sample_pair(pi: V3, pj: V3, vi: V3, vj: V3, half: f64, threshold: f64) -> Sampled {
+    let dr = sub(pj, pi);
+    let dv = sub(vj, vi);
+    let rr = dot(dr, dr);
     let vv = dot(dv, dv);
-    if vv < FORMATION_SPEED * FORMATION_SPEED {
-        return if norm(dr) < threshold { Sampled::Formation } else { Sampled::Skip };
-    }
-    let tau = -dot(dr, dv) / vv;
-    // Already inside the threshold at this sample: refine regardless of
-    // where the linear TCA lands. For slow pairs the linear estimate is
+    // the linear TCA estimate is tau = -rv / vv
+    let rv = dot(dr, dv);
+    // generous margin: relative motion is not exactly linear over +-step/2
+    let margin = threshold * 2.0 + 1.0;
+
+    // Almost every pair is skipped, so all the tests are evaluated without
+    // branching, division or square roots, and one rarely taken branch decides.
+    let formation = vv < FORMATION_SPEED * FORMATION_SPEED;
+    // Already inside the threshold at this sample: refine regardless of where
+    // the linear TCA lands. For slow pairs the linear estimate is
     // ill-conditioned and could otherwise fall outside every window.
-    if norm(dr) < threshold {
-        return Sampled::Candidate(tau.clamp(-half, half));
-    }
-    // closest approach belongs to a neighbouring sample; the 1 s overlap
-    // covers linearisation error at window edges (duplicates merge by pair)
-    if !(-half - 1.0..half + 1.0).contains(&tau) {
+    let inside = rr < threshold * threshold;
+    // The closest approach must belong to this sample (|tau| <= half, with a 1 s
+    // overlap for linearisation error at window edges; duplicates merge by pair),
+    // and the linear miss, |dr + dv tau|^2 = rr - rv^2 / vv, must be under the
+    // margin. Both are multiplied through by vv > 0.
+    let edge = (half + 1.0) * vv;
+    let near = (-edge < rv) & (rv <= edge) & (rr * vv - rv * rv < margin * margin * vv);
+    if !(inside | near) {
         return Sampled::Skip;
     }
-    let miss = norm([dr[0] + dv[0] * tau, dr[1] + dv[1] * tau, dr[2] + dv[2] * tau]);
-    // generous margin: relative motion is not exactly linear over +-step/2
-    if miss < threshold * 2.0 + 1.0 {
-        Sampled::Candidate(tau)
-    } else {
-        Sampled::Skip
+    if formation {
+        return if inside { Sampled::Formation } else { Sampled::Skip };
     }
+    let tau = -rv / vv;
+    Sampled::Candidate(if inside { tau.clamp(-half, half) } else { tau })
 }
 
 #[inline]
@@ -335,6 +375,31 @@ mod tests {
         let mut v: Vec<(u32, u32, f64)> = s.events().iter().map(|e| (e.a.min(e.b), e.a.max(e.b), e.miss_km)).collect();
         v.sort_by(|x, y| (x.0, x.1).cmp(&(y.0, y.1)));
         v
+    }
+
+    /// Splitting the window into parts and merging by pair, smallest miss first,
+    /// is exactly the single screen, however the samples divide.
+    #[test]
+    fn parts_merge_to_the_whole_window() {
+        let whole = screen(30.0);
+        for parts in [2, 3, 7] {
+            let mut merged: HashMap<(u32, u32), f64> = HashMap::new();
+            let mut steps = 0;
+            for part in 0..parts {
+                let mut s = Screener::new(crossing_shells());
+                s.begin_part(2460000.5, 90.0, 30.0, 5.0, part, parts);
+                assert_eq!(s.advance(u32::MAX), 1.0);
+                steps += s.stats.steps;
+                for e in s.events() {
+                    let m = merged.entry((e.a, e.b)).or_insert(f64::INFINITY);
+                    *m = m.min(e.miss_km);
+                }
+            }
+            assert_eq!(steps, 181, "every sample screened once");
+            let mut merged: Vec<(u32, u32, f64)> = merged.into_iter().map(|((a, b), m)| (a, b, m)).collect();
+            merged.sort_by(|x, y| (x.0, x.1).cmp(&(y.0, y.1)));
+            assert_eq!(merged, whole, "{parts} parts");
+        }
     }
 
     /// A transfer-orbit object at perigee meets a near-retrograde LEO satellite head

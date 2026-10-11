@@ -2828,26 +2828,6 @@ select option {
   display: none;
 }
 
-/* other worlds in the sky: a name you can click to go there */
-.scene-label.world-label {
-  margin: -12px 0 0 14px;
-  padding: 3px 10px 3px 8px;
-  border-color: var(--line-2);
-  cursor: pointer;
-  pointer-events: none;
-  font-size: 10px;
-}
-
-.scene-label.world-label:hover {
-  background: var(--ink);
-  color: #000;
-}
-
-.scene-label.world-label::before {
-  width: 4px;
-  height: 4px;
-}
-
 .legend-chip.static {
   cursor: default;
 }
@@ -3066,8 +3046,8 @@ select option {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
-  margin: 22px 0 10px;
+  gap: 12px;
+  margin: 22px 0 0;
   pointer-events: none;
   /* readable where it overlaps a bright globe */
   text-shadow: 0 1px 14px rgba(0, 0, 0, 0.7);
@@ -3078,7 +3058,7 @@ select option {
   font-size: 46px;
   font-weight: 500;
   line-height: 1;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink);
   white-space: nowrap;
@@ -3090,7 +3070,7 @@ select option {
 @keyframes title-in {
   from {
     opacity: 0;
-    letter-spacing: 0.45em;
+    letter-spacing: 0.34em;
   }
 }
 
@@ -3100,45 +3080,128 @@ select option {
 
 .world-sub {
   margin: 0;
-  font-size: 13.5px;
-  color: var(--ink-2);
-  letter-spacing: 0.02em;
+  font-size: 15px;
+  color: var(--ink);
+  letter-spacing: 0.01em;
 }
 
-/* the other worlds: where you can go, and how far that is right now */
+/* every world: where you can go, and how far that is right now, outward from the Sun.
+   It holds the top right while nothing else does, and gives way to a tool’s panel or the layers menu. */
 .world-go {
+  position: absolute;
+  top: calc(var(--edge) + var(--top) + 22px);
+  right: calc(var(--edge) - 8px);
   display: flex;
-  gap: 6px;
+  flex-direction: column;
   width: max-content;
-  margin: 4px 0 0 -11px;
   pointer-events: auto;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8);
+  transition: opacity 0.3s, transform 0.4s var(--ease);
+}
+
+.hud.panel-open .world-go,
+.ui-hidden .world-go {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(24px);
+}
+
+.world-go-head {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 8px 6px 11px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.world-go-unit {
+  color: var(--ink-4);
+}
+
+.world-col {
+  display: flex;
+  flex-direction: column;
+  width: 232px;
 }
 
 .world-dest {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 30px;
+  gap: 9px;
+  height: 26px;
   padding: 0 8px 0 11px;
   border: 1px solid transparent;
   border-radius: 0;
   background: none;
-  color: var(--ink);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  color: var(--ink-2);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   white-space: nowrap;
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
 }
 
 .world-dest:hover {
   border-color: var(--line-2);
   background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+}
+
+/* where you are: lit, and marked at the edge; its distance column stays empty */
+.world-dest[aria-current] {
+  background: var(--veil-2);
+  box-shadow: inset 2px 0 0 var(--ink);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* the Moon hangs off the Earth above it */
+.world-dest.sub {
+  height: 22px;
+  padding-left: 26px;
+  font-size: 10px;
+}
+
+.world-dest.sub .world-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.world-dest.sub::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: -6px;
+  width: 7px;
+  height: 16px;
+  border-left: 1px solid var(--line-3);
+  border-bottom: 1px solid var(--line-3);
+}
+
+/* the Oort Cloud is a region, not a world: set apart below the planets */
+.world-dest.beyond {
+  margin-top: 8px;
+}
+
+.world-dest.beyond::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  right: 8px;
+  top: -5px;
+  border-top: 1px dashed var(--line-2);
 }
 
 .world-km {
+  margin-left: auto;
   color: var(--ink-3);
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -3146,17 +3209,7 @@ select option {
   font-variant-numeric: tabular-nums;
 }
 
-.world-dest .icon {
-  color: var(--ink-3);
-  transition: transform 0.2s var(--ease);
-}
-
-.world-dest:hover .icon {
-  transform: translateX(2px);
-}
-
 /* with a card open below, the headline keeps only the name and summary */
-.hud.has-selection .world-go,
 .hud.has-selection .left-rail .legend-bar {
   display: none;
 }
@@ -3188,6 +3241,89 @@ select option {
   font-variant-numeric: tabular-nums;
 }
 
+/* the heliosphere's names, seen from far out: regions spaced wide, scale rings quiet */
+.scene-label.helio-label {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transform-origin: left center;
+  text-shadow: 0 0 8px #000, 0 0 2px #000;
+}
+
+.scene-label.helio-label::before {
+  display: none;
+}
+
+.scene-label.helio-region {
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  color: #b9cbec;
+}
+
+.scene-label.helio-body {
+  margin: -8px 0 0 10px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--ink-2);
+}
+
+.scene-label.helio-scale {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  color: var(--ink-3);
+}
+
+/* long lists of moons, folded */
+.fold {
+  border-top: 1px solid var(--line);
+}
+
+.fold > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fold > summary:hover {
+  color: var(--ink);
+}
+
+.fold-count {
+  margin-left: auto;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.fold[open] .explain-chevron {
+  transform: rotate(180deg);
+}
+
+.fold .fleet-list {
+  max-height: 340px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+
+.fleet-empty {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
 /* ======================================================================== responsive */
 
 @media (max-width: 1320px) {
@@ -3204,6 +3340,8 @@ select option {
   .world[aria-checked='false'] {
     padding: 0 10px;
   }
+
+
 }
 
 @media (max-width: 1100px) {
@@ -3286,7 +3424,7 @@ select option {
 
   /* the switcher takes the brand's place in the header row */
   .topbar {
-    grid-template-columns: auto auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
   .brand-name {
@@ -3300,9 +3438,23 @@ select option {
   /* no room for the headline: the worlds go back in the header, the key back to a row */
   .topbar .world-switch {
     display: flex;
+    /* ten worlds: the strip scrolls sideways rather than pushing the buttons off screen */
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
 
-  .world-title {
+  .topbar .world-switch::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar .world[aria-checked='false'] {
+    padding: 0 7px;
+  }
+
+  .world-title,
+  .world-go {
     display: none;
   }
 

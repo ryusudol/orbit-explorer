@@ -32,7 +32,10 @@ jobs:
       # over between runs, so it's only asked again once they're 2 hours old.
       - uses: actions/cache@v4
         with:
-          path: data/cache/*.csv
+          # GP CSVs, plus JPL's moon rosters (30 days) and the irregular moons' elements (7 days)
+          path: |
+            data/cache/*.csv
+            data/cache/horizons
           key: gp-${{ github.run_id }}
           restore-keys: gp-
       - name: Fetch snapshots
@@ -49,7 +52,8 @@ jobs:
       - name: Typecheck
         run: pnpm --filter web typecheck
 
-      # Web: snapshot decoding, Hermite interpolation error, satellite.js cross-check
+      # Web: snapshot decoding, Hermite interpolation error, satellite.js cross-check,
+      # planets and moons against JPL Horizons, flights out to the Oort cloud
       - name: vitest
         run: WRITE_VALIDATION=1 pnpm --filter web test
 

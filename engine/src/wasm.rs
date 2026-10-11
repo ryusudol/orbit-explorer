@@ -218,6 +218,11 @@ impl Screener {
         self.inner.begin(jd0, duration_min, step_s, threshold_km);
     }
 
+    /// Screen part `part` of `parts` of the window (see `conjunction::Screener::begin_part`).
+    pub fn begin_part(&mut self, jd0: f64, duration_min: f64, step_s: f64, threshold_km: f64, part: u32, parts: u32) {
+        self.inner.begin_part(jd0, duration_min, step_s, threshold_km, part, parts);
+    }
+
     /// Run up to `max_steps` samples; returns progress 0..1.
     pub fn advance(&mut self, max_steps: u32) -> f64 {
         self.inner.advance(max_steps)

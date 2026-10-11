@@ -23,8 +23,12 @@ export interface Layers {
   earthFixed: boolean;
   /** NASA Milky Way map and the Sun */
   sky: boolean;
-  /** every orbiter's track around the Moon or Mars, not just the selected one */
+  /** every orbiter's track around another world, not just the selected one, and the planets' orbits */
   orbits: boolean;
+  /** the moons around another world: off to pick out the spacecraft among Jupiter's 115 */
+  moons: boolean;
+  /** Venus: the radar map of the surface instead of the cloud tops */
+  radar: boolean;
 }
 
 export interface RouteInfo {
@@ -67,7 +71,7 @@ export interface SelectedInfo {
   epochAgeH: number;
 }
 
-/** The selected spacecraft or moon around the Moon or Mars. */
+/** The selected spacecraft or moon around another world. */
 export interface OrbiterInfo {
   id: number;
   name: string;
@@ -84,20 +88,39 @@ export interface OrbiterInfo {
   eccentricity: number;
   periapsisKm: number;
   apoapsisKm: number;
+  /** false while a spacecraft is still arriving: its elements describe no real orbit */
+  orbiting: boolean;
+  /** distance from the centre, km/s (negative closing) */
+  radialKms: number;
+  /** closest the track comes to the centre from now on, km, at closestMs; closestAtEnd when still closing at the track's end */
+  closestKm: number;
+  closestMs: number;
+  closestAtEnd: boolean;
   /** one-way light time to Earth, s */
   lightTimeS: number;
-  /** published trajectory span, ms */
+  /** published trajectory span, ms; for elements, [epoch, NaN] */
   spanMs: [number, number];
+  /** sampled trajectory, or osculating elements moved by two-body motion */
+  source: 'track' | 'elements';
+  by: string;
+  note: string;
+  /** distance from the Earth, km */
+  earthKm: number;
+  /** distance from the Sun, au (the Oort cloud's orbiters) */
+  sunAu: number;
 }
 
-/** One line of the Moon's or Mars' orbiter list, refreshed with the scene's summaries. */
+/** One line of a world's orbiter list, refreshed with the scene's summaries. */
 export interface FleetRow {
   id: number;
   name: string;
   kind: 'spacecraft' | 'moon';
   by: string;
+  /** listed with a caption (sim/bodies.ts), not just from the snapshot */
+  curated: boolean;
   valid: boolean;
   altKm: number;
+  /** 0 while arriving (no orbit yet) */
   periodH: number;
 }
 
@@ -169,7 +192,7 @@ interface State {
   body: BodyId;
   /** set while the camera flies between worlds */
   travel: { from: BodyId; to: BodyId } | null;
-  /** Horizons id of the selected orbiter around the Moon or Mars */
+  /** Horizons id of the selected orbiter around another world */
   orbiter: number | null;
   orbiterInfo: OrbiterInfo | null;
   /** relay site per world */
@@ -227,7 +250,9 @@ export const useStore = create<State>((set) => ({
     cones: false,
     earthFixed: true,
     sky: true,
-    orbits: true,
+    orbits: false,
+    moons: true,
+    radar: false,
   },
   tab: 'explore',
   body: 'earth',

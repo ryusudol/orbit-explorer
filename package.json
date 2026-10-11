@@ -7,7 +7,7 @@
   "scripts": {
     "engine:build": "wasm-pack build engine --release --target web --out-dir ../web/src/engine-pkg --out-name orbit_explorer_engine --no-pack",
     "engine:test": "cargo test --release --manifest-path engine/Cargo.toml",
-    "data": "node data/fetch-tles.mjs && node data/fetch-ephemeris.mjs",
+    "data": "node data/fetch-tles.mjs && node data/fetch-ephemeris.mjs && node data/fetch-small-bodies.mjs",
     "dev": "node data/ensure.mjs && pnpm engine:build && pnpm --filter web dev",
     "build": "node data/ensure.mjs && pnpm engine:build && pnpm --filter web build",
     "preview": "pnpm --filter web preview",

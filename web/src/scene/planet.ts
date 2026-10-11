@@ -1,4 +1,4 @@
-// The Moon and Mars: spheres in their own body-fixed frames (X = 0° longitude,
+// The Moon, Mars, Mercury and Venus' surface: spheres in their own body-fixed frames (X = 0° longitude,
 // Z = north pole), mapped with the same 4x4 tile grid as the Earth, lit by the
 // real Sun over relief from their laser-altimeter elevation models.
 //
@@ -11,6 +11,7 @@
 
 import * as THREE from 'three/webgpu';
 import { cross, dot, float, max, mix, mrt, mx_noise_float, normalLocal, normalView, normalize, positionLocal, pow, smoothstep, sqrt, texture, uniform, vec3 } from 'three/tsl';
+import { highp } from './precision';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ALL_TILES, GRID, PatchUv } from './tiles';
 
@@ -116,6 +117,7 @@ export class Planet {
     const brdf = pow(mu0, float(k)).mul(pow(mu, float(k - 1))).mul(lit);
     const albedo = p.color.rgb;
     const mat = new THREE.MeshBasicNodeMaterial();
+    mat.contextNode = highp(); // model-view in float64: the camera can be 10¹⁰ km from the origin
     mat.colorNode = albedo.mul(brdf.mul(this.look.gain).add(this.fill));
     // bloom is tuned for points of light; a sunlit disc would wear a halo
     mat.mrtNode = mrt({ bloom: float(0.15) });
@@ -125,6 +127,7 @@ export class Planet {
   /** Mars: a thin dusty limb, a few tens of km thick, only on the day side. */
   private hazeShell(h: NonNullable<PlanetLook['haze']>) {
     const mat = new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    mat.contextNode = highp(); // model-view in float64: the camera can be 10¹⁰ km from the origin
     const limb = smoothstep(0.0, 0.35, normalView.z.negate());
     const lit = smoothstep(-0.25, 0.35, dot(normalize(positionLocal), this.sun));
     mat.colorNode = vec3(...h.color).mul(pow(limb, float(2.2))).mul(lit).mul(h.strength);
@@ -174,8 +177,8 @@ export class Planet {
 }
 
 /**
- * Phobos and Deimos: lumpy triaxial bodies (IAU mean radii), tidally locked with
- * their long axis toward Mars. No global map at this size is worth the download,
+ * Small moons (Phobos and Deimos, and the giants' small ones): lumpy triaxial
+ * bodies (IAU mean radii), tidally locked with their long axis toward the planet. No global map at this size is worth the download,
  * so the shape is made here: an ellipsoid dented by a few hundred bowl craters
  * with raised rims (Phobos gets Stickney, 9 km across), lit by the real Sun at
  * their true dark albedo (~0.07; lifted a little for the screen).
@@ -185,25 +188,29 @@ export class SmallMoon {
   readonly sun = uniform(new THREE.Vector3(1, 0, 0));
   readonly radiusKm: number;
 
-  constructor(name: string, radii: [number, number, number], seed: number, bigCrater?: { lat: number; lon: number; radiusKm: number }) {
+  constructor(name: string, radii: [number, number, number], seed: number, bigCrater?: { lat: number; lon: number; radiusKm: number }, tint: [number, number, number] = [1, 1, 1]) {
     this.radiusKm = Math.max(...radii);
-    const g = mergeVertices(new THREE.IcosahedronGeometry(1, 48).deleteAttribute('normal').deleteAttribute('uv'));
+    const g = mergeVertices(new THREE.IcosahedronGeometry(1, 64).deleteAttribute('normal').deleteAttribute('uv'));
     // deterministic craters: power-law sizes, many small, few large
     let state = Math.floor(seed * 1e6) || 1;
     const rand = () => ((state = (state * 16807) % 2147483647) - 1) / 2147483646;
     const craters: { c: THREE.Vector3; r: number; depth: number }[] = [];
     const mean = (radii[0] + radii[1] + radii[2]) / 3;
-    for (let i = 0; i < 260; i++) {
+    for (let i = 0; i < 340; i++) {
       const z = rand() * 2 - 1, t = rand() * Math.PI * 2, q = Math.sqrt(1 - z * z);
-      const r = 0.05 + 0.32 * Math.pow(rand(), 3.2); // angular radius, rad
-      craters.push({ c: new THREE.Vector3(q * Math.cos(t), q * Math.sin(t), z), r, depth: r * 0.22 });
+      const r = 0.045 + 0.3 * Math.pow(rand(), 5); // angular radius, rad
+      craters.push({ c: new THREE.Vector3(q * Math.cos(t), q * Math.sin(t), z), r, depth: r * 0.16 });
     }
     if (bigCrater) {
       const la = bigCrater.lat * DEG, lo = bigCrater.lon * DEG;
       const r = bigCrater.radiusKm / mean;
-      craters.push({ c: new THREE.Vector3(Math.cos(la) * Math.cos(lo), Math.cos(la) * Math.sin(lo), Math.sin(la)), r, depth: r * 0.3 });
+      craters.push({ c: new THREE.Vector3(Math.cos(la) * Math.cos(lo), Math.cos(la) * Math.sin(lo), Math.sin(la)), r, depth: r * 0.28 });
     }
-    const lumps = Array.from({ length: 6 }, () => ({ k: new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).multiplyScalar(5), ph: rand() * 6.28, a: 0.025 + rand() * 0.03 }));
+    // the potato: broad lumps, then smaller ones, each weaker
+    const lumps = Array.from({ length: 10 }, (_, i) => {
+      const f = i < 4 ? 2.2 : i < 7 ? 4.5 : 9;
+      return { k: new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize().multiplyScalar(f), ph: rand() * 6.28, a: (0.11 / f) * (0.6 + 0.8 * rand()) };
+    });
     const pos = g.attributes.position as THREE.BufferAttribute;
     const d = new THREE.Vector3();
     for (let i = 0; i < pos.count; i++) {
@@ -212,18 +219,21 @@ export class SmallMoon {
       for (const l of lumps) h += l.a * Math.sin(d.dot(l.k) + l.ph);
       for (const cr of craters) {
         const x = Math.acos(Math.min(1, d.dot(cr.c))) / cr.r;
-        if (x < 1) h += cr.depth * (x * x - 1) + cr.depth * 0.25 * x ** 6;
-        else if (x < 1.6) h += cr.depth * 0.25 * Math.exp(-(((x - 1) / 0.22) ** 2));
+        if (x > 1.8) continue;
+        // a bowl meeting its raised rim with no crease: (1 − x²)² inside, a Gaussian rim at x = 1
+        if (x < 1) h -= cr.depth * (1 - x * x) ** 2;
+        h += cr.depth * 0.28 * Math.exp(-(((x - 1) / 0.28) ** 2));
       }
       pos.setXYZ(i, d.x * radii[0] * (1 + h), d.y * radii[1] * (1 + h), d.z * radii[2] * (1 + h));
     }
     g.computeVertexNormals();
     const mat = new THREE.MeshBasicNodeMaterial();
+    mat.contextNode = highp(); // model-view in float64: the camera can be 10¹⁰ km from the origin
     const p = positionLocal.div(this.radiusKm).add(seed);
     const mottle = mx_noise_float(p.mul(4.3)).mul(0.5).add(mx_noise_float(p.mul(13.1)).mul(0.25));
     const n = normalize(normalLocal);
     const ndl = max(dot(n, this.sun), 0);
-    const albedo = mix(vec3(0.15, 0.135, 0.12), vec3(0.21, 0.19, 0.165), mottle.mul(0.5).add(0.5));
+    const albedo = mix(vec3(0.15, 0.135, 0.12), vec3(0.21, 0.19, 0.165), mottle.mul(0.5).add(0.5)).mul(vec3(...tint));
     mat.colorNode = albedo.mul(pow(ndl, float(0.85)).mul(0.8).add(0.004));
     mat.mrtNode = mrt({ bloom: float(0.15) });
     this.object = new THREE.Mesh(g, mat);

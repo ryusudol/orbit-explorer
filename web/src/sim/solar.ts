@@ -20,7 +20,7 @@ export const AU_KM = 149_597_870.7;
 export const C_KMS = 299_792.458;
 const J2000 = 2451545.0;
 /** TT − UTC since 2017 (TAI − UTC = 37 s, TT − TAI = 32.184 s). */
-const TT_MINUS_UTC_DAYS = 69.184 / 86400;
+export const TT_MINUS_UTC_DAYS = 69.184 / 86400;
 
 export type Vec3 = [number, number, number];
 /** Row-major 3x3 matrix. */
@@ -34,12 +34,12 @@ export const mulMat = (a: Mat3, b: Mat3): Mat3 => {
   return o;
 };
 export const transpose = (m: Mat3): Mat3 => [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]];
-const rotX = (a: number): Mat3 => [1, 0, 0, 0, Math.cos(a), -Math.sin(a), 0, Math.sin(a), Math.cos(a)];
+export const rotX = (a: number): Mat3 => [1, 0, 0, 0, Math.cos(a), -Math.sin(a), 0, Math.sin(a), Math.cos(a)];
 const rotY = (a: number): Mat3 => [Math.cos(a), 0, Math.sin(a), 0, 1, 0, -Math.sin(a), 0, Math.cos(a)];
-const rotZ = (a: number): Mat3 => [Math.cos(a), -Math.sin(a), 0, Math.sin(a), Math.cos(a), 0, 0, 0, 1];
+export const rotZ = (a: number): Mat3 => [Math.cos(a), -Math.sin(a), 0, Math.sin(a), Math.cos(a), 0, 0, 0, 1];
 
 /** Julian centuries of TT since J2000, from a UTC Julian date. */
-const centuries = (jdUtc: number) => (jdUtc + TT_MINUS_UTC_DAYS - J2000) / 36525;
+export const centuries = (jdUtc: number) => (jdUtc + TT_MINUS_UTC_DAYS - J2000) / 36525;
 
 /**
  * ICRF (J2000 mean equator and equinox) -> mean equator and equinox of date
@@ -110,7 +110,7 @@ export function moonGeocentric(jdUtc: number): Vec3 {
   return mul(rotX(obliquity(T)), ecl);
 }
 
-interface Elements {
+export interface Elements {
   a: [number, number];
   e: [number, number];
   I: [number, number];
@@ -119,7 +119,7 @@ interface Elements {
   node: [number, number];
 }
 // Standish table 1: value at J2000 and rate per century (au, rad-free degrees)
-const EM_BARY: Elements = {
+export const EM_BARY: Elements = {
   a: [1.00000261, 0.00000562],
   e: [0.01671123, -0.00004392],
   I: [-0.00001531, -0.01294668],
@@ -127,7 +127,7 @@ const EM_BARY: Elements = {
   peri: [102.93768193, 0.32327364],
   node: [0, 0],
 };
-const MARS: Elements = {
+export const MARS: Elements = {
   a: [1.52371034, 0.00001847],
   e: [0.0933941, 0.00007882],
   I: [1.84969142, -0.00813131],
@@ -137,7 +137,7 @@ const MARS: Elements = {
 };
 
 /** Heliocentric position (km) in the J2000 ecliptic, from mean elements and Kepler's equation. */
-function keplerian(el: Elements, T: number): Vec3 {
+export function keplerian(el: Elements, T: number): Vec3 {
   const at = (p: [number, number]) => p[0] + p[1] * T;
   const a = at(el.a) * AU_KM, e = at(el.e), I = at(el.I) * DEG, L = at(el.L), peri = at(el.peri), node = at(el.node);
   const w = (peri - node) * DEG, O = node * DEG;
@@ -155,7 +155,7 @@ function keplerian(el: Elements, T: number): Vec3 {
 }
 
 /** J2000 ecliptic -> ICRF (equatorial J2000). */
-const ECLIPTIC_J2000 = rotX(23.43928 * DEG);
+export const ECLIPTIC_J2000 = rotX(23.43928 * DEG);
 /** Earth–Moon mass ratio + 1: the Earth sits 1/82.3 of the way from the barycentre to the Moon. */
 const EARTH_MOON_RATIO = 82.30057;
 
@@ -179,11 +179,19 @@ export function sunGeocentric(jdUtc: number, P = precession(jdUtc)): Vec3 {
   return mul(P, [moonJ2000[0] / EARTH_MOON_RATIO - emb[0], moonJ2000[1] / EARTH_MOON_RATIO - emb[1], moonJ2000[2] / EARTH_MOON_RATIO - emb[2]]);
 }
 
+/** The Earth's centre from the Sun (km, ICRF: equator and equinox of J2000). */
+export function earthHeliocentric(jdUtc: number): Vec3 {
+  const T = centuries(jdUtc);
+  const emb = mul(ECLIPTIC_J2000, keplerian(EM_BARY, T));
+  const moonJ2000 = mul(transpose(precession(jdUtc)), moonGeocentric(jdUtc));
+  return [emb[0] - moonJ2000[0] / EARTH_MOON_RATIO, emb[1] - moonJ2000[1] / EARTH_MOON_RATIO, emb[2] - moonJ2000[2] / EARTH_MOON_RATIO];
+}
+
 /**
  * Body-fixed -> ICRF rotation from the IAU pole (α0, δ0) and prime meridian W:
  * R = Rz(90° + α0) · Rx(90° − δ0) · Rz(W). Body-fixed X is 0° longitude, Z the north pole.
  */
-function iauFrame(alpha0: number, delta0: number, W: number): Mat3 {
+export function iauFrame(alpha0: number, delta0: number, W: number): Mat3 {
   return mulMat(rotZ((90 + alpha0) * DEG), mulMat(rotX((90 - delta0) * DEG), rotZ(W * DEG)));
 }
 

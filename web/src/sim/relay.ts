@@ -1,4 +1,4 @@
-// Who can talk to a site on the Moon or Mars, and when.
+// Who can talk to a site on the Moon or Mars, and when; and how far any world is.
 //
 // A lander or rover reaches Earth two ways: directly, while the Earth is above
 // its horizon, or through an orbiter passing overhead, which stores the data and
@@ -9,19 +9,20 @@
 
 import { BODIES, type BodyId, type Site } from './bodies';
 import { stateAt, type Track } from './ephemeris';
-import { C_KMS, marsGeocentric, marsOrientation, moonGeocentric, moonOrientation, mul, precession, sunGeocentric, transpose, type Mat3, type Vec3 } from './solar';
+import { geocentric, orientationOf } from './planets';
+import { C_KMS, mul, precession, sunGeocentric, transpose, type Mat3, type Vec3 } from './solar';
 
 const DEG = Math.PI / 180;
 /** Relay passes count from this elevation: lower, the link margin and terrain get in the way. */
 export const RELAY_MIN_ELEV_DEG = 10;
 
-/** Body-fixed -> ICRF orientation of the Moon or Mars. */
-export const orientation = (body: BodyId, jd: number): Mat3 => (body === 'moon' ? moonOrientation(jd) : marsOrientation(jd));
+/** Body-fixed -> ICRF orientation of a world. */
+export const orientation = (body: BodyId, jd: number): Mat3 => orientationOf(body, jd);
 
-/** Body's centre relative to the Earth's (km, ICRF). */
+/** Body's centre relative to the Earth's (km, ICRF); the Sun's for the Oort cloud. */
 export function bodyFromEarth(body: BodyId, jd: number, P = precession(jd)): Vec3 {
   if (body === 'earth') return [0, 0, 0];
-  return mul(transpose(P), body === 'moon' ? moonGeocentric(jd) : marsGeocentric(jd, P));
+  return mul(transpose(P), geocentric(body, jd, P));
 }
 
 /** One-way light time between the Earth's and the body's centres, seconds. */

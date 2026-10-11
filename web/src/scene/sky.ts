@@ -5,14 +5,16 @@
 
 import * as THREE from 'three/webgpu';
 import { abs, atan, cos, exp, float, fwidth, length, max, min, pow, smoothstep, sqrt, texture, uniform, uv, vec3 } from 'three/tsl';
+import { highp } from './precision';
+import { SKY_KM } from './far';
 import { SpriteLayer } from './sprites';
 import { ALL_TILES, GRID, PatchUv } from './tiles';
 
 const DEG = Math.PI / 180;
-/** Sky radius (km): inside the camera's far plane, far beyond everything else. */
-const R_SKY = 1.2e6;
-const R_STARS = 1.1e6;
-const R_SUN = 1.0e6;
+/** Sky radii (km): inside the camera's far plane, beyond everything else (see far.ts). */
+const R_SKY = SKY_KM * 1.05;
+const R_STARS = SKY_KM * 1.03;
+const R_SUN = SKY_KM;
 /** The Sun's mean angular radius, and how far its glow reaches. */
 const SUN_RADIUS = 0.2666 * DEG;
 const SUN_EXTENT = 8 * DEG;
@@ -117,6 +119,12 @@ export function psf(vmag: number): { sigma: number; peak: number } {
 
 type Patch = { map: ReturnType<typeof texture>; uv: PatchUv };
 
+const SUN_TINT = new THREE.Color('#fff4e0');
+const smoothstep01 = (x: number, a: number, b: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
 export class Sky {
   /** overall brightness of the Milky Way map */
   readonly milkyWayGain = uniform(0.2);
@@ -124,6 +132,9 @@ export class Sky {
   private milkyWay = new THREE.Group();
   private stars: SpriteLayer | null = null;
   private sun: THREE.Sprite;
+  /** the Sun as a point of light, once its disc is too small to draw (beyond Neptune) */
+  private sunPoint = new SpriteLayer(1, 'star', { renderOrder: -1, depthTest: true });
+  private pixelRatio = 1;
   private hasMap = false;
   private show = true;
   readonly objects: THREE.Object3D[];
@@ -137,6 +148,7 @@ export class Sky {
       const map = texture(blank, puv.node);
       this.patches.push({ map, uv: puv });
       const mat = new THREE.MeshBasicNodeMaterial({ depthWrite: false, depthTest: false, side: THREE.DoubleSide });
+      mat.contextNode = highp(); // model-view in float64: the camera can be 10¹⁰ km from the origin
       // the map's sky floor is already black (scripts/sky.mjs); keep the core under the bloom threshold
       mat.colorNode = map.rgb.mul(this.milkyWayGain);
       const mesh = new THREE.Mesh(celestialPatch(R_SKY, c / GRID.cols, (c + 1) / GRID.cols, r / GRID.rows, (r + 1) / GRID.rows), mat);
@@ -148,7 +160,7 @@ export class Sky {
     this.milkyWay.visible = false;
 
     this.sun = this.makeSun();
-    this.objects = [this.milkyWay, this.sun];
+    this.objects = [this.milkyWay, this.sun, this.sunPoint.object];
   }
 
   /**
@@ -158,6 +170,7 @@ export class Sky {
    */
   private makeSun(): THREE.Sprite {
     const mat = new THREE.SpriteNodeMaterial({ transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending });
+    mat.contextNode = highp(); // model-view in float64: the camera can be 10¹⁰ km from the origin
     const p = uv().sub(0.5).mul(2);
     const q = length(p);
     const r = q.mul(SUN_EXTENT / SUN_RADIUS); // in solar radii
@@ -215,6 +228,7 @@ export class Sky {
 
   /** Builds the star layer for the renderer's pixel ratio; returns it for the scene. */
   setStars(cat: StarCatalog, pixelRatio: number, toDate = new THREE.Matrix3()): THREE.Object3D {
+    this.pixelRatio = pixelRatio;
     const keep: number[] = [];
     const sigma = new Float32Array(cat.count), peak = new Float32Array(cat.count);
     for (let i = 0; i < cat.count; i++) {
@@ -249,6 +263,7 @@ export class Sky {
     this.show = milkyWayAndSun;
     this.milkyWay.visible = milkyWayAndSun && this.hasMap;
     this.sun.visible = milkyWayAndSun;
+    this.sunPoint.object.visible = milkyWayAndSun;
   }
 
   /** The survey map is J2000; turn it to the scene's equator of date (precession, ~0.36° in 2026). */
@@ -258,13 +273,25 @@ export class Sky {
 
   /**
    * Re-centre on the camera; `sunDir` is the unit vector to the Sun in the scene
-   * frame, `sunAu` the Sun's distance (its disc shrinks to 0.35° from Mars).
+   * frame, `sunAu` the Sun's distance (its disc shrinks to 0.35° from Mars, and
+   * to a point of light at magnitude −3 from the Oort cloud).
    */
   update(cam: THREE.Vector3, sunDir: THREE.Vector3, sunAu = 1) {
     this.milkyWay.position.copy(cam);
     if (this.stars) this.stars.object.position.copy(cam);
     this.sun.position.copy(cam).addScaledVector(sunDir, R_SUN);
-    const size = (2 * R_SUN * Math.tan(SUN_EXTENT)) / sunAu;
+    // beyond ~30 au the disc and its glare shrink below a pixel: hand over to a star-like point
+    const fade = 1 - smoothstep01(sunAu, 20, 60);
+    const size = (2 * R_SUN * Math.tan(SUN_EXTENT)) / Math.min(sunAu, 60);
     this.sun.scale.set(size, size, 1);
+    this.sun.visible = this.show && fade > 0.01;
+    if (fade < 1) {
+      const { sigma, peak } = psf(-26.74 + 5 * Math.log10(sunAu));
+      this.sunPoint.setOffset(0, cam.x + sunDir.x * R_SUN * 0.99, cam.y + sunDir.y * R_SUN * 0.99, cam.z + sunDir.z * R_SUN * 0.99, cam);
+      this.sunPoint.setColor(0, SUN_TINT, (6 * sigma) / this.pixelRatio, peak * (1 - fade));
+      this.sunPoint.commit(1, cam);
+    } else {
+      this.sunPoint.commit(0, cam);
+    }
   }
 }

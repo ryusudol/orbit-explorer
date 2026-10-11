@@ -24,12 +24,14 @@ import { Sky, decodeStars } from './sky';
 import { Spacecraft, orbitFrame } from './spacecraft';
 import { SpriteLayer } from './sprites';
 import { ALL_TILES, loadInOrder } from './tiles';
-import { BODIES, BODY_ORDER, type BodyId } from '../sim/bodies';
-import { span } from '../sim/ephemeris';
+import { BODIES, BODY_ORDER, hasSites, type BodyId } from '../sim/bodies';
+import { span, stateAt } from '../sim/ephemeris';
 import { lightTimeS, relayPlan } from '../sim/relay';
-import { mulMat, precession, transpose, type Mat3, type Vec3 } from '../sim/solar';
+import { AU_KM, C_KMS } from '../sim/solar';
+import { mul, mulMat, precession, transpose, type Mat3, type Vec3 } from '../sim/solar';
 import type { OrbiterInfo } from '../state/store';
 import { SolarSystem, type OrbiterState } from './system';
+import { farPoint, openFarPlane } from './far';
 import { arrivalDirection, travelDuration, travelPose, unit, type TravelPlan, type V3 } from './travel';
 
 const R_EARTH = 6378.137;
@@ -138,12 +140,19 @@ export class SceneController {
   private sys!: SolarSystem;
   /** everything drawn relative to the Earth's centre: satellites, links, route, orbits, the model */
   private earthLayers = new THREE.Group();
-  /** model of a followed spacecraft around the Moon or Mars */
+  /** model of a followed spacecraft around another world */
   private orbCraft = new Spacecraft();
   /** the world the scene is centred on; while travelling, the one we left until we arrive */
   private focus: BodyId = 'earth';
   /** geocentric position of the scene's origin, km */
   private anchor: Vec3 = [0, 0, 0];
+  /**
+   * Floating origin: the scene's origin sits this far from the focused world's centre.
+   * Zero, except near an orbiter far from its world (a Voyager, 2.5×10¹⁰ km from the
+   * Sun): there the origin rides with it, because some GPU paths (Line2's vertex shader)
+   * compose matrices in float32 and lose kilometres that far out.
+   */
+  private rebase = new THREE.Vector3();
   private travel: { from: BodyId; to: BodyId; t0: number; plan: TravelPlan; after?: () => void } | null = null;
   /** Moon/Mars orientation last frame, for turning the camera with the ground */
   private lastOrient: Mat3 | null = null;
@@ -152,7 +161,7 @@ export class SceneController {
   private orbiterModel = 0;
   private relayAt = 0;
   private relayKey = '';
-  private worldLabels = new Map<BodyId, HTMLButtonElement>();
+  private fleetAt = 0;
 
   readonly n: number;
   private pos: Float64Array;
@@ -214,6 +223,7 @@ export class SceneController {
     this.valid = new Uint8Array(this.n);
     this.visibleMask = new Uint8Array(this.n);
     this.camera = new THREE.PerspectiveCamera(40, 1, 1, 3e6);
+    openFarPlane(this.camera);
     this.camera.up.set(0, 0, 1);
     current = this;
     // a handle for driving the scene from the console and from browser tests
@@ -328,11 +338,12 @@ export class SceneController {
       .then((t) => !this.disposed && this.sky.setMilkyWay(t))
       .catch((err) => console.warn('Milky Way map unavailable', err));
 
-    // the Moon is in the Earth's sky; Mars is a point of light until we go there
+    // the Moon is in the Earth's sky; the planets are points of light until we go there
     sky
-      .then(() => this.sys.loadPreview('moon'))
-      .then(() => this.sys.loadPreview('mars'))
-      .catch((err) => console.warn('Moon and Mars previews unavailable', err));
+      .then(async () => {
+        for (const id of BODY_ORDER) if (id !== 'earth' && !this.disposed) await this.sys.loadPreview(id).catch((err) => console.warn(`${id} preview unavailable`, err));
+      })
+      .catch(() => {});
     const P = precession(this.clock.jd);
     this.sky.setFrame(matrix4(P));
 
@@ -584,9 +595,10 @@ export class SceneController {
     if (!this.travel) {
       // the scene stays centred on the world in focus as it moves (Mars at ~20 km/s relative to us)
       const a = this.sys.at(this.focus);
-      this.anchor = [a[0], a[1], a[2]];
       // orbiter states for this frame before the camera follows one
       if (this.focus !== 'earth') this.sys.advance(this.focus, jd);
+      this.updateRebase(s.orbiter);
+      this.anchor = [a[0] + this.rebase.x, a[1] + this.rebase.y, a[2] + this.rebase.z];
     }
     if (this.focus !== 'earth' && !this.travel) this.turnWithWorld(layers.earthFixed && !s.follow);
     else this.lastOrient = null;
@@ -639,7 +651,8 @@ export class SceneController {
       this.applyViewOffset();
     }
     this.controls.rotateSpeed = this.rotateSpeed();
-    this.controls.zoomSpeed = s.follow ? 0.8 * FOLLOW_ZOOM : 0.8;
+    // the Oort cloud's view spans 10⁷ in distance: zoom in bigger steps there
+    this.controls.zoomSpeed = s.follow ? 0.8 * FOLLOW_ZOOM : this.focus === 'oort' ? 2.4 : 0.8;
     this.updateUp(dt, s.follow && this.focus === 'earth' && sel !== null && this.valid[sel] ? sel : null);
     if (!this.travel) this.controls.update();
     // close to a model the near plane has to come in to metres (the log depth buffer keeps the
@@ -653,6 +666,8 @@ export class SceneController {
     const cam = this.camera.position;
     // worlds first: the Earth's satellites ride on the Earth's place in the scene
     this.sys.place(this.anchor, cam, this.viewH, this.camera.fov, layers.sky);
+    this.sys.radar = layers.radar;
+    this.sys.placeHelio(this.anchor, cam, jd, this.nearestDistance(), this.focus === 'oort' && !this.travel, layers.orbits);
     this.earth.group.updateMatrixWorld();
     this.earth.setCamera(this.earth.group.worldToLocal(cam.clone()));
     const atEarth = this.focus === 'earth' && !this.travel;
@@ -873,7 +888,7 @@ export class SceneController {
       }
       // dimmer once the model is up: close in, the track is a guide, not the subject
       const color = k === 0 ? this.orbitTint.copy(ORBIT_COLOR).multiplyScalar(1 - 0.65 * this.modelFade) : PARTNER_ORBIT_COLOR;
-      orbit.update(tr.pts, ORBIT_SAMPLES, color, cam);
+      orbit.update(tr.pts, ORBIT_SAMPLES, color, cam, this.camera);
     });
   }
 
@@ -892,8 +907,9 @@ export class SceneController {
   }
 
   private occluded(p: THREE.Vector3): boolean {
-    // does the segment camera -> p pass through the world in focus (at the origin)?
-    const c = this.camera.position;
+    // does the segment camera -> p pass through the world in focus (at the origin, less any floating offset)?
+    const c = this.camera.position.clone().add(this.rebase);
+    p = p.clone().add(this.rebase);
     const d = p.clone().sub(c);
     const len2 = d.lengthSq();
     const t = Math.min(1, Math.max(0, -c.dot(d) / len2));
@@ -1074,13 +1090,14 @@ export class SceneController {
       this.focus !== 'earth'
         ? orbiter?.valid
           ? orbiter.pos.clone()
-          : this.camera.position.clone()
+          : this.camera.position.clone().add(this.rebase)
         : from !== null && this.valid[from]
           ? new THREE.Vector3(this.pos[3 * from], this.pos[3 * from + 1], this.pos[3 * from + 2])
           : this.camera.position.clone();
     // a GEO object sits outside the usual framing distance: back off far enough to keep it in front
     const dist = Math.max(this.fitDistance(), p.length() * 1.6);
-    this.startFlight(p.clone().setLength(dist), new THREE.Vector3(), 1500, { earthFixed: true });
+    const centre = this.rebase.clone().negate(); // the world's centre in scene coordinates
+    this.startFlight(p.clone().setLength(dist).add(centre), centre, 1500, { earthFixed: true });
   }
 
   /** Back to the opening view, smoothly. */
@@ -1186,6 +1203,7 @@ export class SceneController {
         // leaving follow mode, however it happens (Esc, the button, clearing the selection): zoom back out
         if (prev.follow && !s.follow && !this.resetting && !this.travel) this.flyOut(prev.selected ?? this.leaving);
         if (s.layers.orbits !== prev.layers.orbits) this.sys.allOrbits = s.layers.orbits;
+        if (s.layers.moons !== prev.layers.moons) this.sys.showMoons = s.layers.moons;
         if (s.src !== prev.src || s.dst !== prev.dst) {
           this.routePath = null;
           s.set({ latency: [], route: null });
@@ -1238,6 +1256,70 @@ export class SceneController {
     return best;
   }
 
+  /** An orbiter's position in scene coordinates (its world's centre, less the floating origin's offset). */
+  private sceneOf(o: OrbiterState, out = new THREE.Vector3()): THREE.Vector3 {
+    return out.copy(o.pos).sub(this.rebase);
+  }
+
+  /**
+   * Move the floating origin onto the selected orbiter while the camera is near one far
+   * from its world, and back to the world's centre otherwise. Everything positioned in
+   * scene coordinates (camera, target, flight) shifts with it, so nothing visibly moves.
+   */
+  private updateRebase(orbiterId: number | null) {
+    const o = this.focus !== 'earth' ? this.sys.find(orbiterId) : null;
+    const want = new THREE.Vector3();
+    if (o?.valid && o.pos.length() > 1e7 && this.camera.position.distanceTo(this.sceneOf(o)) < 5e6) want.copy(o.pos);
+    if (want.equals(this.rebase)) return;
+    const d = want.clone().sub(this.rebase);
+    this.camera.position.sub(d);
+    this.controls.target.sub(d);
+    this.lastTarget.sub(d);
+    const f = this.flight;
+    if (f) for (const v of [f.fromPos, f.fromTarget, f.toPos, f.toTarget]) v.sub(d);
+    this.rebase.copy(want);
+  }
+
+  /** Distance from the camera to the nearest world's centre, km. */
+  private nearestDistance(): number {
+    const c = this.camera.position;
+    let best = Infinity;
+    for (const id of BODY_ORDER) {
+      if (id === 'oort') continue;
+      const a = this.sys.at(id);
+      best = Math.min(best, Math.hypot(a[0] - this.anchor[0] - c.x, a[1] - this.anchor[1] - c.y, a[2] - this.anchor[2] - c.z));
+    }
+    return best;
+  }
+
+  /**
+   * The spacecraft leaving the solar system, for the Catalogue: distance from the Earth
+   * and the Sun now (km). Loads the Sun-centred snapshot on first use; [] until it arrives.
+   */
+  deepSpace(): { id: number; name: string; norad: number; earthKm: number; sunKm: number }[] {
+    this.sys.loadTracks('oort');
+    const jd = this.clock.jd;
+    const sun = this.sys.at('oort');
+    const P = this.sys.precession;
+    const st = new Float64Array(6);
+    const NORAD: Record<number, number> = { [-31]: 10321, [-32]: 10271 };
+    return this.sys
+      .searchable()
+      .filter((o) => o.body === 'oort')
+      .flatMap((o) => {
+        const e = this.sys.ephemObject('oort', o.id);
+        if (!e?.track || !stateAt(e.track, jd, st)) return [];
+        const p = mul(P, [st[0], st[1], st[2]]);
+        return [{ id: o.id, name: o.name, norad: NORAD[o.id] ?? 0, earthKm: Math.hypot(sun[0] + p[0], sun[1] + p[1], sun[2] + p[2]), sunKm: Math.hypot(...p) }];
+      });
+  }
+
+  /** Every moon and spacecraft beyond Earth, for search: loads every world's snapshot (~3 MB) on first use. */
+  async searchOrbiters() {
+    await Promise.all(BODY_ORDER.map((b) => this.sys.loadTracks(b)));
+    return this.sys.searchable();
+  }
+
   /** One-way light time between the Earth and a world at a simulated time, s. */
   lightTimeTo(body: BodyId, timeMs: number): number {
     return lightTimeS(body, timeMs / 86400000 + 2440587.5);
@@ -1255,9 +1337,17 @@ export class SceneController {
       return new THREE.Vector3(...geodeticToEcef(38, -38, 0)).normalize().applyAxisAngle(Z_AXIS, g).multiplyScalar(this.fitDistance('earth'));
     }
     const A = this.sys.at(from), B = this.sys.at(to);
+    const pole = this.sys.pole(to, new THREE.Vector3());
+    if (to === 'oort') {
+      // high over the ecliptic on the side we came from, looking back at the Sun and the planets' orbits
+      const back = new THREE.Vector3(A[0] - B[0], A[1] - B[1], A[2] - B[2]);
+      back.addScaledVector(pole, -back.dot(pole));
+      if (back.lengthSq() < 1e-6) back.set(1, 0, 0).addScaledVector(pole, -pole.x);
+      back.normalize();
+      return back.multiplyScalar(Math.cos(0.6)).addScaledVector(pole, Math.sin(0.6)).multiplyScalar(this.fitDistance(to));
+    }
     const sun = new THREE.Vector3();
     this.sys.sunFrom(to, sun);
-    const pole = this.sys.pole(to, new THREE.Vector3());
     const d = arrivalDirection([B[0] - A[0], B[1] - A[1], B[2] - A[2]], [sun.x, sun.y, sun.z], [pole.x, pole.y, pole.z]);
     return new THREE.Vector3(d[0], d[1], d[2]).multiplyScalar(this.fitDistance(to));
   }
@@ -1296,10 +1386,12 @@ export class SceneController {
     this.zoomGoal = null;
     this.followFrame = null;
     this.followSwing = null;
+    this.rebase.set(0, 0, 0);
     this.controls.enabled = false;
     this.updateUp(1e6, null);
     if (s.selected !== null) this.selectObject(null);
-    const tab = to === 'earth' ? (s.tab === 'fleet' || s.tab === 'relay' ? 'explore' : s.tab) : s.tab === 'explore' || s.tab === 'perf' || s.tab === 'fleet' || s.tab === 'relay' ? s.tab : 'fleet';
+    let tab = to === 'earth' ? (s.tab === 'fleet' || s.tab === 'relay' ? 'explore' : s.tab) : s.tab === 'explore' || s.tab === 'perf' || s.tab === 'fleet' || s.tab === 'relay' ? s.tab : 'fleet';
+    if (tab === 'relay' && !hasSites(to)) tab = 'fleet';
     s.set({ body: to, travel: { from, to }, orbiter: null, orbiterInfo: null, follow: false, hover: null, relay: null, tab });
     this.sys.loadTracks(to);
     if (to !== 'earth') this.sys.loadImagery(to, () => this.sys.toBodyFixed(to, arrive.clone().normalize()));
@@ -1335,9 +1427,9 @@ export class SceneController {
     this.camera.lookAt(look[0], look[1], look[2]);
   }
 
-  /** "Rotate with the world" for the Moon and Mars: carry the camera round with the ground. */
+  /** "Rotate with the world" away from the Earth: carry the camera round with the ground. */
   private turnWithWorld(on: boolean) {
-    const m = this.sys.orientation(this.focus as 'moon' | 'mars');
+    const m = this.sys.orientation(this.focus);
     if (on && this.lastOrient) {
       const q = new THREE.Quaternion().setFromRotationMatrix(matrix4(mulMat(m, transpose(this.lastOrient))));
       this.camera.position.applyQuaternion(q);
@@ -1357,14 +1449,21 @@ export class SceneController {
 
   /**
    * Everything about the worlds that isn't the Earth's own layers: the orbiters of
-   * the Moon or Mars (dots, orbits, names, a followed spacecraft's model), the
-   * other worlds' names in the sky, and the Sun as seen from where we are.
+   * the world in focus (dots, orbits, names, a followed spacecraft's model), the
+   * other worlds' names in the sky, the heliosphere's names, and the Sun as seen
+   * from where we are.
    */
   private updateWorlds(jd: number, cam: THREE.Vector3, s: ReturnType<typeof useStore.getState>) {
     const here = this.travel ? this.nearestWorld() : this.focus;
     const sun = new THREE.Vector3();
-    const au = this.sys.sunFrom(here, sun);
+    // the Sun from the camera itself: from the Oort cloud the world in focus is the Sun
+    const camGeo: Vec3 = [this.anchor[0] + cam.x, this.anchor[1] + cam.y, this.anchor[2] + cam.z];
+    const au = this.sys.sunFromPoint(camGeo, sun);
     this.sky.update(cam, sun, au);
+    // models are lit from their own world's Sun direction
+    const worldSun = new THREE.Vector3();
+    this.sys.sunFrom(here, worldSun);
+    if (here === 'oort') worldSun.copy(sun);
 
     // orbiters: around the world in focus, or the destination as we close in
     const tr = this.travel;
@@ -1380,79 +1479,84 @@ export class SceneController {
     let px = 0;
     if (o?.valid && o.o.kind === 'spacecraft') {
       this.orbCraft.setObject(o.o.id, o.o.name, Category.Payload, 0);
-      px = (this.orbCraft.radiusKm / Math.max(1e-9, o.pos.distanceTo(cam)) / Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) * (this.viewH / 2);
+      px = (this.orbCraft.radiusKm / Math.max(1e-9, this.sceneOf(o).distanceTo(cam)) / Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) * (this.viewH / 2);
     } else {
       this.orbCraft.setObject(null);
     }
     this.orbiterModel = THREE.MathUtils.smoothstep(px, 4, 14);
-    this.sys.updateOrbiters(shown, jd, origin, cam, sel, s.hover?.color ? s.hover.index : null, true, this.orbiterModel > 0.5);
+    const hovered = s.hover?.color ? s.hover.index : null;
+    this.sys.updateOrbiters(shown, jd, origin, cam, sel, hovered, true, this.orbiterModel > 0.5, this.viewH, this.camera.fov, this.camera.near, this.camera);
     if (o?.valid && o.o.kind === 'spacecraft') {
-      this.orbCraft.update(o.pos, o.vel, sun, this.sys.sunlit(this.focus, o), (jd - 2451545) * 86400, px > 1);
+      this.orbCraft.update(this.sceneOf(o), o.vel, worldSun, this.sys.sunlit(this.focus, o), (jd - 2451545) * 86400, px > 1, o.pos);
     } else {
-      this.orbCraft.update(new THREE.Vector3(), new THREE.Vector3(1, 0, 0), sun, 1, 0, false);
+      this.orbCraft.update(new THREE.Vector3(), new THREE.Vector3(1, 0, 0), worldSun, 1, 0, false);
     }
 
-    // orbiter names
+    // orbiter names: the listed ones always, any other moon while it is selected or under the pointer
     const named = new Set<string>();
     if (shown && !tr) {
       for (const st of this.sys.orbiters) {
+        if ((!st.curated && st.o.id !== sel && st.o.id !== hovered) || this.sys.hidden(st, sel)) continue;
         const key = `orb${st.o.id}`;
         named.add(key);
         const el = this.label(key, st.o.name);
         el.classList.add('orbiter-label');
         el.classList.toggle('moon', st.o.kind === 'moon');
-        const p = st.pos;
-        const sc = this.toScreen(p);
-        // a name over a body that fills the view (Phobos close up, a spacecraft's model) only gets in the way
-        const discPx = st.o.radii ? (st.o.radii[0] / Math.max(1e-6, p.distanceTo(cam)) / Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) * (this.viewH / 2) : 0;
-        const visible = st.valid && sc.ok && !this.occluded(p) && !(st.o.id === sel && this.orbiterModel > 0.5) && discPx < 24;
+        const p = this.sceneOf(st);
+        const sc = this.screenOf(p);
+        // a name over a body that fills the view (a moon close up, a spacecraft's model) only gets in the way
+        const discPx = st.o.radii ? (Math.max(...st.o.radii) / Math.max(1e-6, p.distanceTo(cam)) / Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) * (this.viewH / 2) : 0;
+        // and names that would pile onto their world (the Voyagers seen from the Oort cloud) wait until they stand apart
+        const centre = this.screenOf(origin);
+        const apart = st.o.id === sel || Math.hypot(sc.x - centre.x, sc.y - centre.y) > 14;
+        const visible = st.valid && sc.ok && apart && !this.occluded(p) && !(st.o.id === sel && this.orbiterModel > 0.5) && discPx < 24;
         el.style.opacity = visible ? (st.o.id === sel ? '1' : '0.78') : '0';
         if (visible) el.style.transform = `translate(${sc.x.toFixed(1)}px, ${sc.y.toFixed(1)}px)`;
       }
     }
     for (const [key, el] of this.labels) if (key.startsWith('orb') && !named.has(key)) el.style.opacity = '0';
 
-    // the other worlds, named where they hang in the sky; click one to go there
-    for (const id of BODY_ORDER) {
-      const el = this.worldLabel(id);
-      const a = this.sys.at(id);
-      const d = new THREE.Vector3(a[0] - this.anchor[0], a[1] - this.anchor[1], a[2] - this.anchor[2]).sub(cam);
-      const dist = d.length();
-      const p = cam.clone().addScaledVector(d, Math.min(1, 5e5 / dist));
-      const sc = this.toScreen(p);
-      // only once it's small in the sky: a world filling the view needs no name
-      const angular = BODIES[id].radiusKm / dist;
-      const visible = !tr && id !== this.focus && s.layers.sky && sc.ok && angular < 0.08 && !this.occluded(p);
-      el.style.opacity = visible ? '1' : '0';
-      el.style.pointerEvents = visible ? 'auto' : 'none';
+    // the heliosphere's regions, dwarf planets and distance rings, when they are in view
+    const helio = this.sys.helio;
+    const sunScene = new THREE.Vector3(this.sys.sun[0] - this.anchor[0], this.sys.sun[1] - this.anchor[1], this.sys.sun[2] - this.anchor[2]);
+    const rSun = cam.distanceTo(sunScene);
+    const seen = new Set<string>();
+    const v = new THREE.Vector3();
+    for (const l of helio.labels) {
+      const key = `helio-${l.key}`;
+      const fade = l.key === 'sun' ? 1 : l.kind === 'body' ? helio.fades.belt : l.kind === 'scale' ? 1 : l.key === 'kuiper' ? helio.fades.belt : l.key === 'heliopause' ? helio.fades.shells : helio.fades.cloud;
+      const on = !tr && this.focus === 'oort' && s.layers.sky && fade > 0.3 && rSun > l.near && rSun < l.far;
+      seen.add(key);
+      const el = this.label(key, l.text);
+      el.classList.add('helio-label', `helio-${l.kind}`);
+      helio.toScene(l.at, sunScene, v);
+      const sc = this.screenOf(v);
+      const visible = on && sc.ok;
+      el.style.opacity = visible ? (l.kind === 'scale' ? '0.55' : '0.85') : '0';
       if (visible) el.style.transform = `translate(${sc.x.toFixed(1)}px, ${sc.y.toFixed(1)}px)`;
     }
+    for (const [key, el] of this.labels) if (key.startsWith('helio-') && !seen.has(key)) el.style.opacity = '0';
   }
 
-  private worldLabel(id: BodyId): HTMLButtonElement {
-    let el = this.worldLabels.get(id);
-    if (!el) {
-      el = document.createElement('button');
-      el.className = 'scene-label world-label';
-      el.textContent = BODIES[id].name;
-      el.title = `Go to ${id === 'earth' ? 'the Earth' : id === 'moon' ? 'the Moon' : 'Mars'}`;
-      el.addEventListener('click', () => this.travelTo(id));
-      this.labelLayer.appendChild(el);
-      this.worldLabels.set(id, el);
-    }
-    return el;
+  /** Screen position of a scene point at any distance: pulled in first (far.ts) so it stays inside the view volume. */
+  private screenOf(p: THREE.Vector3): { x: number; y: number; ok: boolean } {
+    const c = this.camera.position;
+    const out = [0, 0, 0];
+    farPoint(p.x, p.y, p.z, c, out);
+    return this.toScreen(new THREE.Vector3(out[0], out[1], out[2]));
   }
 
   /** Nearest orbiter of the world in focus within `radiusPx` of a screen point (Horizons id). */
   private pickOrbiter(x: number, y: number, radiusPx: number): number | null {
     let best: number | null = null;
     let bestD = radiusPx * radiusPx;
+    const sel = useStore.getState().orbiter;
     for (const st of this.sys.orbiters) {
-      if (!st.valid) continue;
-      const sc = this.toScreen(st.pos);
+      if (!st.valid || this.sys.hidden(st, sel)) continue;
+      const sc = this.screenOf(this.sceneOf(st));
       if (!sc.ok) continue;
       const d = (sc.x - x) ** 2 + (sc.y - y) ** 2;
-      if (d < bestD && !this.occluded(st.pos)) {
+      if (d < bestD && !this.occluded(this.sceneOf(st))) {
         bestD = d;
         best = st.o.id;
       }
@@ -1487,18 +1591,18 @@ export class SceneController {
       this.canvas.style.cursor = '';
       return;
     }
-    s.set({ hover: { index: st.o.id, name: st.o.name, x, y, color: st.o.kind === 'moon' ? '#c9c4bc' : GROUP_HEX[2], meta: st.o.by } });
+    s.set({ hover: { index: st.o.id, name: st.o.name, x, y, color: st.o.kind === 'moon' ? (st.curated ? '#c9c4bc' : '#a49f97') : GROUP_HEX[2], meta: st.o.by } });
     this.canvas.style.cursor = 'pointer';
   }
 
-  /** Select an orbiter of the Moon or Mars by Horizons id; while following, follow it instead. */
+  /** Select an orbiter of the world in focus by Horizons id; while following, follow it instead. */
   selectOrbiter(id: number | null, follow = false) {
     const s = useStore.getState();
     const wasFollowing = s.follow;
     s.set({ orbiter: id, orbiterInfo: null, ...(id === null ? { follow: false } : null) });
     const st = this.sys.find(id);
     if (st?.valid) {
-      this.lastTarget.copy(st.pos);
+      this.lastTarget.copy(this.sceneOf(st));
       if (follow || wasFollowing) this.flyToOrbiter(st.o.id);
     }
   }
@@ -1510,14 +1614,24 @@ export class SceneController {
     useStore.getState().set({ orbiter: id, follow: true });
     const toPos = new THREE.Vector3(), toTarget = new THREE.Vector3();
     const moon = st.o.kind === 'moon';
+    const sun = new THREE.Vector3();
     const chase = () => {
       const o = this.sys.find(id);
       if (!o?.valid) return;
-      toTarget.copy(o.pos);
+      toTarget.copy(this.sceneOf(o));
       const up = o.pos.clone().normalize();
       const back = o.vel.clone().normalize().negate();
       const d = moon ? o.o.radii![0] * 5 : 140;
-      toPos.copy(o.pos).addScaledVector(back, d).addScaledVector(up, d * 0.35);
+      const dir = back.clone().addScaledVector(up, 0.35).normalize();
+      if (moon) {
+        // a moon is seen ~35° from the Sun, mostly lit, rather than from behind along its orbit
+        // (which may be its night side, with its own orbit running at the camera)
+        this.sys.sunFrom(this.focus, sun);
+        const perp = dir.clone().addScaledVector(sun, -dir.dot(sun));
+        if (perp.lengthSq() < 1e-6) perp.copy(up).addScaledVector(sun, -up.dot(sun));
+        dir.copy(sun).multiplyScalar(Math.cos(0.61)).addScaledVector(perp.normalize(), Math.sin(0.61));
+      }
+      toPos.copy(toTarget).addScaledVector(dir, d);
     };
     chase();
     this.startFlight(toPos, toTarget, 1600, {
@@ -1538,14 +1652,22 @@ export class SceneController {
     const toPos = new THREE.Vector3(), toTarget = new THREE.Vector3();
     const sunW = new THREE.Vector3();
     this.sys.sunFrom(this.focus, sunW);
+    // around a planet the camera stays above the craft, with the world below; out past the planets
+    // "above" points away from the Sun, so look from the sunward side, at the lit face of the dish.
+    // The side is chosen once: from the Oort cloud's centre (the Sun) the Sun lies straight down the
+    // craft's zenith, so its along-track and cross-track parts are rounding noise whose signs, read
+    // every frame, flung the camera from one side of the craft to the other.
+    const q0 = orbitFrame(st.pos, st.vel, new THREE.Quaternion());
+    if (this.focus === 'oort') sunW.copy(st.pos).normalize().negate();
+    const sun0 = sunW.clone().applyQuaternion(q0.invert());
+    const sideOf = (c: number) => (Math.abs(c) > 0.05 ? Math.sign(c) : 1);
+    const side = new THREE.Vector3(sideOf(sun0.x), sideOf(sun0.y), this.focus === 'oort' ? -1 : 1);
     const closeUp = () => {
       const o = this.sys.find(id);
       if (!o?.valid) return;
-      toTarget.copy(o.pos);
+      toTarget.copy(this.sceneOf(o));
       const q = orbitFrame(o.pos, o.vel, new THREE.Quaternion());
-      const sun = sunW.clone().applyQuaternion(q.clone().invert());
-      const side = new THREE.Vector3(Math.sign(sun.x) || 1, Math.sign(sun.y) || 1, 1);
-      toPos.copy(CLOSE_VIEW).multiply(side).applyQuaternion(q).multiplyScalar(Math.max(this.orbCraft.radiusKm * 3.2, 0.01)).add(o.pos);
+      toPos.copy(CLOSE_VIEW).multiply(side).applyQuaternion(q).multiplyScalar(Math.max(this.orbCraft.radiusKm * 3.2, 0.01)).add(toTarget);
     };
     closeUp();
     this.startFlight(toPos, toTarget, 1900, {
@@ -1564,19 +1686,36 @@ export class SceneController {
     const q = orbitFrame(o.pos, o.vel, new THREE.Quaternion());
     if (this.followFrame) off.applyQuaternion(q.clone().multiply(this.followFrame.invert()));
     this.followFrame = q;
-    this.camera.position.copy(o.pos).add(off);
-    this.controls.target.copy(o.pos);
-    this.lastTarget.copy(o.pos);
+    const p = this.sceneOf(o);
+    this.camera.position.copy(p).add(off);
+    this.controls.target.copy(p);
+    this.lastTarget.copy(p);
   }
 
   private orbiterInfo(o: OrbiterState, jd: number): OrbiterInfo {
-    const body = this.focus as 'moon' | 'mars';
-    const [t0, t1] = span(o.track);
-    const base = { id: o.o.id, name: o.o.name, kind: o.o.kind, lightTimeS: lightTimeS(body, jd), spanMs: [jdToMs(t0), jdToMs(t1)] as [number, number] };
-    if (!o.valid) return { ...base, valid: false, latDeg: 0, lonDeg: 0, altKm: 0, speedKms: 0, sunlit: 1, periodH: 0, inclinationDeg: 0, eccentricity: 0, periapsisKm: 0, apoapsisKm: 0 };
+    const body = this.focus;
+    const spanMs: [number, number] = o.track ? (span(o.track).map(jdToMs) as [number, number]) : [jdToMs(o.eph.elements?.epochJd ?? jd), NaN];
+    // light time from the Earth to the orbiter itself (it matters at the Voyagers' 170 au)
+    const at = this.sys.at(body);
+    const earthKm = Math.hypot(at[0] + o.pos.x, at[1] + o.pos.y, at[2] + o.pos.z);
+    const base = {
+      id: o.o.id,
+      name: o.o.name,
+      kind: o.o.kind,
+      by: o.o.by,
+      note: o.o.note,
+      source: o.track ? ('track' as const) : ('elements' as const),
+      lightTimeS: (o.valid ? earthKm : Math.hypot(...at)) / C_KMS,
+      spanMs,
+      earthKm,
+      sunAu: body === 'oort' ? o.pos.length() / AU_KM : 0,
+    };
+    if (!o.valid) return { ...base, valid: false, latDeg: 0, lonDeg: 0, altKm: 0, speedKms: 0, sunlit: 1, periodH: 0, inclinationDeg: 0, eccentricity: 0, periapsisKm: 0, apoapsisKm: 0, orbiting: true, radialKms: 0, closestKm: NaN, closestMs: NaN, closestAtEnd: false };
     const geo = this.sys.geo(body, o);
     const el = this.sys.elements(body, o);
     const R = BODIES[body].radiusKm;
+    const orbiting = this.sys.orbiting(body, o);
+    const closest = orbiting ? { km: NaN, jd: NaN, atEnd: false } : this.sys.closestAhead(o, jd);
     return {
       ...base,
       valid: true,
@@ -1590,13 +1729,19 @@ export class SceneController {
       eccentricity: el.e,
       periapsisKm: el.periapsisKm - R,
       apoapsisKm: el.apoapsisKm - R,
+      orbiting,
+      radialKms: o.pos.dot(o.vel) / o.pos.length(),
+      closestKm: closest.km,
+      closestMs: jdToMs(closest.jd),
+      closestAtEnd: closest.atEnd,
     };
   }
 
   /** The relay plan for the chosen site, refreshed as simulated time moves on (≤ every 1.5 s). */
   private relay(now: number, jd: number) {
     const s = useStore.getState();
-    const body = this.focus as 'moon' | 'mars';
+    const body = this.focus;
+    if (body !== 'moon' && body !== 'mars') return null;
     const tracks = this.sys.tracksFor(body);
     const key = `${body}:${s.site[body]}:${tracks.length}`;
     const stale = !s.relay || key !== this.relayKey || Math.abs(jd - s.relay.jd0) * 1440 > 2;
@@ -1782,12 +1927,16 @@ export class SceneController {
     if (this.focus !== 'earth' && !this.travel) {
       const o = this.sys.find(s.orbiter);
       if (o) patch.orbiterInfo = this.orbiterInfo(o, jd);
-      patch.fleet = this.sys.orbiters.map((st) => {
+      // the list can be hundreds of moons long: once a second is plenty
+      if (now - this.fleetAt > 1000 || s.fleet.length !== this.sys.orbiters.length) {
+        this.fleetAt = now;
         const R = BODIES[this.focus].radiusKm;
-        const el = st.valid ? this.sys.elements(this.focus as 'moon' | 'mars', st) : null;
-        return { id: st.o.id, name: st.o.name, kind: st.o.kind, by: st.o.by, valid: st.valid, altKm: st.valid ? st.pos.length() - R : 0, periodH: el ? el.periodS / 3600 : 0 };
-      });
-      if (s.tab === 'relay') {
+        patch.fleet = this.sys.orbiters.map((st) => {
+          const el = st.valid && this.sys.orbiting(this.focus, st) ? this.sys.elements(this.focus, st) : null;
+          return { id: st.o.id, name: st.o.name, kind: st.o.kind, by: st.o.by, curated: st.curated, valid: st.valid, altKm: st.valid ? st.pos.length() - R : 0, periodH: el ? el.periodS / 3600 : 0 };
+        });
+      }
+      if (s.tab === 'relay' && hasSites(this.focus)) {
         const plan = this.relay(now, jd);
         if (plan) patch.relay = plan;
       }
@@ -1814,7 +1963,6 @@ export class SceneController {
     this.conj?.terminate();
     this.controls?.dispose();
     this.labels.forEach((el) => el.remove());
-    this.worldLabels.forEach((el) => el.remove());
     this.sys?.dispose();
     this.renderer?.dispose();
     if (current === this) current = null;

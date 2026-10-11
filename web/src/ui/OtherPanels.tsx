@@ -70,6 +70,42 @@ export function CoveragePanel() {
   );
 }
 
+/**
+ * The catalogue's farthest entries: the two Voyagers still carry their NORAD numbers,
+ * though they left Earth orbit in 1977. A row flies there and follows.
+ */
+function DeepSpace() {
+  useStore((s) => s.timeMs); // refresh with the clock
+  const rows = getController()?.deepSpace() ?? [];
+  const AU = 149_597_870.7;
+  return (
+    <Section title="Beyond Earth orbit" aside="from the Sun · light time">
+      <div className="event-list" role="list">
+        {rows.map((r) => (
+          <button
+            key={r.id}
+            role="listitem"
+            className="event fleet-row"
+            onClick={() => getController()?.travelTo('oort', () => getController()?.selectOrbiter(r.id, true))}
+            title={`Fly to ${r.name} and follow it`}
+          >
+            <Dot color={GROUP_HEX[2]} />
+            <span className="event-names">
+              <span>{r.name}</span>
+              <span className="muted">NORAD {r.norad} · launched 1977</span>
+            </span>
+            <span className="event-figs">
+              <span className="event-miss">{fixed(r.sunKm / AU, 1)} au</span>
+              <span className="event-when">{fixed(r.earthKm / 299_792.458 / 3600, 1)} h</span>
+            </span>
+          </button>
+        ))}
+        {!rows.length && <p className="body-text">Loading the Voyagers’ trajectories…</p>}
+      </div>
+    </Section>
+  );
+}
+
 export function CatalogPanel() {
   const meta = useStore((s) => s.meta);
   const counts = useStore((s) => s.groupCounts);
@@ -101,6 +137,7 @@ export function CatalogPanel() {
           ))}
         </div>
       </Section>
+      <DeepSpace />
       <Section title="Mean altitude" aside="log scale · own count scale per row">
         {data && <D3Chart draw={drawAltitude} data={data} height={278} label="Objects by mean altitude per group, log altitude axis" />}
         <Explain title="Reading the chart">
@@ -159,7 +196,7 @@ export function PerfPanel() {
       )}
       <Section title="Conjunction sieve benchmark">
         <div className="bench">
-          <p className="body-text">Find every pair closer than 10 km at one instant, in WASM: spatial hash versus checking all pairs.</p>
+          <p className="body-text">Find every pair closer than 10 km at one instant, in WASM: spatial grid versus checking all pairs.</p>
           <button className="btn primary" disabled={running} onClick={() => getController()?.runBenchmark()}>
             <Icon name="bolt" size={14} />
             {running ? 'Running…' : bench ? 'Run again' : 'Run benchmark'}
@@ -169,14 +206,14 @@ export function PerfPanel() {
           <>
             <div className="hero">
               <span className="hero-v">{int(bench.bruteMs / Math.max(bench.gridMs, 0.001))}×</span>
-              <span className="hero-u">faster with a spatial hash</span>
+              <span className="hero-u">faster with a spatial grid</span>
             </div>
             <div className="compare">
-              <BenchBar label="Spatial hash" value={bench.gridMs} scale={bench.bruteMs} />
+              <BenchBar label="Spatial grid" value={bench.gridMs} scale={bench.bruteMs} />
               <BenchBar label="All pairs" value={bench.bruteMs} scale={bench.bruteMs} reference />
             </div>
             <p className="fine">
-              {int(bench.objects)} objects → {compact(bench.pairsChecked)} pairs for the brute-force check versus 27 neighbour cells per object.
+              {int(bench.objects)} objects → {compact(bench.pairsChecked)} pairs for the brute-force check versus only the 27 cells around each object.
               Both found the same {int(bench.gridPairs)} pairs. Propagating all took {ms(bench.propagateMs)}.
             </p>
           </>

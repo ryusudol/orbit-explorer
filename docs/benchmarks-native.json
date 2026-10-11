@@ -1,11 +1,11 @@
 {
   "machine": "Apple M1",
-  "objects": 32583, "sgp4init_ms": 23.96, "propagate_ms": 11.069,
-  "isl_sats": 11131, "isl_edges": 17719, "isl_build_ms": 2.788, "dijkstra_ms": 0.3156,
-  "sieve_grid_ms": 7.475, "sieve_brute_ms": 624.31,
-  "screen_1h_20s": {"seconds": 4.277, "events": 2981},
-  "screen_24h_20s": {"seconds": 104.842, "events": 60756},
-  "screen_24h_60s": {"seconds": 63.469, "events": 60756},
-  "screen_24h_120s": {"seconds": 71.751, "events": 60756},
-  "scaling": [{"n": 10000, "propagate_ms": 3.296, "grid_ms": 1.560, "brute_ms": 58.04}, {"n": 30000, "propagate_ms": 8.635, "grid_ms": 6.136, "brute_ms": 524.14}, {"n": 100000, "propagate_ms": 30.608, "grid_ms": 19.175, "brute_ms": 5856.19}]
+  "objects": 32583, "sgp4init_ms": 18.93, "propagate_ms": 8.588,
+  "isl_sats": 11131, "isl_edges": 17719, "isl_build_ms": 2.617, "dijkstra_ms": 0.3332,
+  "sieve_grid_ms": 1.507, "sieve_brute_ms": 638.14,
+  "screen_1h_20s": {"seconds": 2.014, "events": 2981},
+  "screen_24h_20s": {"seconds": 49.099, "events": 60756},
+  "screen_24h_60s": {"seconds": 22.954, "events": 60756},
+  "screen_24h_120s": {"seconds": 22.512, "events": 60756},
+  "scaling": [{"n": 10000, "propagate_ms": 2.610, "grid_ms": 0.431, "brute_ms": 60.10}, {"n": 30000, "propagate_ms": 6.621, "grid_ms": 1.344, "brute_ms": 545.52}, {"n": 100000, "propagate_ms": 32.772, "grid_ms": 3.995, "brute_ms": 6081.36}]
 }

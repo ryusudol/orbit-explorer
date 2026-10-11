@@ -7,7 +7,7 @@
 use orbit_explorer_engine::batch::{Batch, ELEMENT_STRIDE};
 use orbit_explorer_engine::conjunction::Screener;
 use orbit_explorer_engine::frames::C_KM_S;
-use orbit_explorer_engine::grid::{brute_force_pairs, SpatialHash};
+use orbit_explorer_engine::grid::{brute_force_pairs, SpatialGrid};
 use orbit_explorer_engine::isl::{self, IslConfig, Terminal};
 use orbit_explorer_engine::sgp4::gstime;
 use std::time::Instant;
@@ -119,11 +119,11 @@ fn main() {
     // ---- conjunction sieve: one instant, grid vs all pairs ----
     batch.propagate(jd, false);
     let radius = 10.0;
-    let mut grid = SpatialHash::new(radius);
+    let mut grid = SpatialGrid::new(radius);
     let t = Instant::now();
     grid.build(&batch.pos, &batch.ok);
     let mut pairs_grid = 0;
-    grid.for_each_pair_within(&batch.pos, radius, |_, _, _| pairs_grid += 1);
+    grid.for_each_pair_within(radius, |_, _, _| pairs_grid += 1);
     let grid_ms = ms(t);
     let t = Instant::now();
     let mut pairs_brute = 0;
@@ -160,11 +160,11 @@ fn main() {
         let t = Instant::now();
         b.propagate(jd, false);
         let prop = ms(t);
-        let mut grid = SpatialHash::new(radius);
+        let mut grid = SpatialGrid::new(radius);
         let t = Instant::now();
         grid.build(&b.pos, &b.ok);
         let mut pg = 0u64;
-        grid.for_each_pair_within(&b.pos, radius, |_, _, _| pg += 1);
+        grid.for_each_pair_within(radius, |_, _, _| pg += 1);
         let gms = ms(t);
         let t = Instant::now();
         let mut pb = 0u64;

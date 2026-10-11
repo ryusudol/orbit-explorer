@@ -179,7 +179,7 @@ export function ConjunctionPanel() {
           </div>
         )}
         <Explain>
-          Every 60 s all objects are propagated and bucketed in a spatial hash with cell = threshold + v_rel,max·Δt/2 (≈ 485 km), so no
+          Every 60 s all objects are propagated and sorted into a spatial grid with cell = threshold + v_rel,max·Δt/2 (≈ 485 km), so no
           encounter between samples can slip through. Surviving pairs get a linear TCA estimate, then Newton refinement on full SGP4 states.
           Docked and formation-flying pairs (v_rel &lt; 10 m/s) are excluded. TLE errors are ~1 km, so treat these as screening hits, not
           collision probabilities.

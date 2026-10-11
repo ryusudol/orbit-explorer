@@ -10,6 +10,14 @@
 // proportion to each part's log-distance range makes the speed continuous there.
 // The camera never passes through either body: its distance from A, then from B,
 // only grows, then only shrinks.
+//
+// When one end of the flight is much farther out than the two worlds are apart
+// (the Oort cloud's view of the Sun from 60,000 au, after leaving the Earth 1 au
+// from it), there is no halfway to fall from: the flight is one long zoom. The
+// distance changes geometrically from start to end, the centre it is measured
+// from slides from the near world to the far one while the camera is already
+// several times their separation away, and the direction turns while the camera
+// is still close to the near world, so it can't sweep through either body.
 
 export type V3 = [number, number, number];
 
@@ -54,10 +62,13 @@ export interface TravelPlan {
   dur: number;
 }
 
-/** Duration from the flight's log-distance range: ~2.6 s to the Moon, ~5 s to Mars. */
+/** A zoom, not a cruise: one end is farther out than a quarter of the worlds' separation. */
+export const isZoom = (fromDist: number, toDist: number, D: number) => Math.max(fromDist, toDist) > D / 4;
+
+/** Duration from the flight's log-distance range: ~2.6 s to the Moon, ~5 s to Mars, ~6 s out to the Oort cloud. */
 export function travelDuration(fromDist: number, toDist: number, D: number): number {
-  const L = Math.log(D / 2 / fromDist) + Math.log(D / 2 / toDist);
-  return 1600 + 200 * Math.max(0, L);
+  const L = isZoom(fromDist, toDist, D) ? Math.abs(Math.log(toDist / fromDist)) : Math.log(D / 2 / fromDist) + Math.log(D / 2 / toDist);
+  return Math.min(7000, 1600 + 200 * Math.max(0, L));
 }
 
 /**
@@ -67,6 +78,7 @@ export function travelDuration(fromDist: number, toDist: number, D: number): num
 export function travelPose(plan: TravelPlan, u: number, B: V3): { pos: V3; look: V3 } {
   const k = easeInOut(Math.max(0, Math.min(1, u)));
   const D = len(B);
+  if (isZoom(len(plan.from), plan.toDist, D)) return zoomPose(plan, k, B, D);
   const dir = scale(B, 1 / D);
   const r0 = len(plan.from), r1 = plan.toDist;
   const half = D / 2;
@@ -89,8 +101,8 @@ export function travelPose(plan: TravelPlan, u: number, B: V3): { pos: V3; look:
 }
 
 /**
- * Where to arrive: 50° off the Sun, toward the side we came from, and a little above
- * the equator. The first view of a world is lit three-quarters, with a terminator
+ * Where to arrive: 50° off the Sun, toward the side we came from, and a little off
+ * the equator toward the sunlit pole. The first view of a world is lit three-quarters, with a terminator
  * where the relief shows (head-on to the Sun, a world looks flat).
  */
 export function arrivalDirection(fromAtoB: V3, sunFromB: V3, pole: V3): V3 {
@@ -99,5 +111,25 @@ export function arrivalDirection(fromAtoB: V3, sunFromB: V3, pole: V3): V3 {
   let side = sub(back, scale(sun, dot(back, sun)));
   if (len(side) < 1e-3) side = cross(sun, pole);
   const d = slerp(sun, unit(side), 50 / 90);
-  return unit(add(d, scale(pole, 0.3)));
+  // lean toward the sunlit pole: from there a ringed planet's rings show their lit face
+  return unit(add(d, scale(pole, dot(sun, pole) < 0 ? -0.3 : 0.3)));
+}
+
+/** The one-long-zoom flight (see the header): `k` is eased progress, `B` the destination relative to A. */
+function zoomPose(plan: TravelPlan, k: number, B: V3, D: number): { pos: V3; look: V3 } {
+  const r0 = len(plan.from), r1 = plan.toDist;
+  const outbound = r1 > r0;
+  const lr = Math.log(r0) + (Math.log(r1) - Math.log(r0)) * k;
+  const r = Math.exp(lr);
+  // centre: the near world while within 2D of it, the far one beyond 8D
+  const w = smoothstep(Math.log(2 * D), Math.log(8 * D), lr);
+  const c = outbound ? scale(B, w) : scale(B, 1 - w);
+  // direction: turned while near the near world
+  const rNear = outbound ? r0 : r1;
+  const h = smoothstep(Math.log(rNear), Math.log(2 * D), lr);
+  const d = slerp(unit(plan.from), plan.toDir, outbound ? h : 1 - h);
+  const pos = add(c, scale(d, r));
+  const toB = unit(sub(B, pos));
+  const look = slerp(plan.look, toB, smoothstep(0.02, 0.4, k));
+  return { pos, look };
 }

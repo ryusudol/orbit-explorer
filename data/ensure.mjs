@@ -13,7 +13,8 @@ const out = (file) => join(root, 'web', 'public', 'data', file);
 
 const BUILDERS = [
   { script: 'fetch-tles.mjs', files: ['catalog.bin', 'catalog.json'] },
-  { script: 'fetch-ephemeris.mjs', files: ['ephemeris-moon.bin', 'ephemeris-mars.bin'] },
+  { script: 'fetch-small-bodies.mjs', files: ['tno.bin'] },
+  { script: 'fetch-ephemeris.mjs', files: ['moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'oort'].map((b) => `ephemeris-${b}.bin`) },
 ];
 
 for (const { script, files } of BUILDERS) {

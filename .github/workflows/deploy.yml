@@ -44,10 +44,13 @@ jobs:
       # scheduled deploy reuses them instead of asking again
       - uses: actions/cache@v4
         with:
-          path: data/cache/*.csv
+          # GP CSVs, plus JPL's moon rosters (30 days) and the irregular moons' elements (7 days)
+          path: |
+            data/cache/*.csv
+            data/cache/horizons
           key: gp-${{ github.run_id }}
           restore-keys: gp-
-      - name: Fetch GP elements and JPL Horizons trajectories
+      - name: Fetch GP elements, JPL Horizons trajectories and the Kuiper belt
         env:
           # Optional: with a Space-Track account the full public catalogue (~30k) is used.
           SPACETRACK_USER: ${{ secrets.SPACETRACK_USER }}

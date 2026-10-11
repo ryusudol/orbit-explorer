@@ -2,6 +2,7 @@
 
 import * as THREE from 'three/webgpu';
 import { float, mix, positionGeometry, smoothstep, texture, uniform, uv, vec3, length } from 'three/tsl';
+import { highp } from './precision';
 import { capHalfAngle, geodeticToEcef } from '../sim/physics';
 import { ellipsoidGeometry } from './earth';
 
@@ -36,6 +37,7 @@ export class CoverageOverlay {
     let col = mix(c[0], c[1], smoothstep(float(0), float(1), seg));
     for (let k = 2; k < c.length; k++) col = mix(col, c[k], smoothstep(float(k - 1), float(k), seg));
     const mat = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false });
+    mat.contextNode = highp(); // model-view in float64: the camera can be 10¹⁰ km from the origin
     mat.colorNode = col;
     // zero coverage stays fully transparent so gaps read as holes
     mat.opacityNode = smoothstep(0.0, 0.02, t).mul(t.mul(0.3).add(0.22));
@@ -80,6 +82,7 @@ export function visibilityCone(latDeg: number, lonDeg: number, shellKm: number, 
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('along', new THREE.Float32BufferAttribute(along, 1));
   const mat = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+  mat.contextNode = highp(); // model-view in float64: the camera can be 10¹⁰ km from the origin
   // brighter toward the rim so the footprint reads, faint at the apex
   const dist = length(positionGeometry.sub(vec3(apex.x, apex.y, apex.z)));
   const f = smoothstep(0.0, float(r * Math.sin(lambda) * 1.4), dist);
@@ -89,6 +92,7 @@ export function visibilityCone(latDeg: number, lonDeg: number, shellKm: number, 
 
   const rimGeo = new THREE.BufferGeometry().setFromPoints(ring);
   const rimMat = new THREE.LineBasicNodeMaterial({ color: tint, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending });
+  rimMat.contextNode = highp(); // model-view in float64: the camera can be 10¹⁰ km from the origin
   group.add(new THREE.Line(rimGeo, rimMat));
   group.renderOrder = 1;
   return group;

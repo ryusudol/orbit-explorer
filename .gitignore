@@ -14,3 +14,6 @@ test-results/
 # built by `pnpm data`, fetched fresh on every deploy
 web/public/data/catalog.*
 web/public/data/ephemeris-*.bin
+web/public/data/tno.bin
+# written by `pnpm validate` and WRITE_VALIDATION=1 tests (CI regenerates them for the plots)
+docs/validation/*.csv

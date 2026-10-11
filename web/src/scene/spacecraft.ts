@@ -2,7 +2,7 @@
 //
 // The catalogue has no shapes, so each object gets a stylised model of its
 // class (Starlink by hardware generation, a generic satellite bus, a rocket
-// stage, a fragment), plus a named one for Tiangong. The ISS and Hubble load NASA's own models (see
+// stage, a fragment), plus named ones for Tiangong, the Voyagers, Juno and BepiColombo. The ISS and Hubble load NASA's own models (see
 // ASSETS), with the stylised ones standing in until they arrive. Models are in metres and
 // scaled to the scene's kilometres. Working spacecraft hold a nadir-pointing
 // attitude (+X along track, +Z to the zenith) and turn their solar arrays to the
@@ -16,9 +16,12 @@ import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Category, starlinkVersion } from '../sim/catalog';
 import { highp } from './precision';
 
-export type Kind = 'starlink-v1' | 'starlink-v2' | 'starlink-v3' | 'satellite' | 'derelict' | 'hubble' | 'iss' | 'tiangong' | 'rocket' | 'fragment';
+export type Kind = 'starlink-v1' | 'starlink-v2' | 'starlink-v3' | 'satellite' | 'derelict' | 'hubble' | 'iss' | 'tiangong' | 'rocket' | 'fragment' | 'voyager' | 'juno' | 'bepicolombo';
 
 export function kindOf(name: string, category: number, norad = 0): Kind {
+  if (name.startsWith('Voyager')) return 'voyager';
+  if (name === 'Juno') return 'juno';
+  if (name === 'BepiColombo') return 'bepicolombo';
   if (name.startsWith('ISS (')) return 'iss';
   if (name.startsWith('CSS (')) return 'tiangong';
   if (name === 'HST') return 'hubble';
@@ -37,6 +40,8 @@ interface Model {
   /** solar array mounts: turned about their Y axis so the cells (+Z) face the Sun */
   trackers: THREE.Object3D[];
   tumble: { axis: THREE.Vector3; rate: number; q0: THREE.Quaternion } | null;
+  /** spin-stabilised about +Z, which points at the Sun (Juno: 2 rpm), deg/s */
+  sunSpin?: number;
   /** geometry belongs to a cached asset: not ours to dispose */
   shared?: boolean;
 }
@@ -366,6 +371,101 @@ function fragment(rand: () => number): Partial<Model> {
   return { root, trackers: [], tumble: randomTumble(rand, 2, 12) };
 }
 
+/**
+ * Voyager 1 and 2: the 3.7 m high-gain dish (on −Z, toward the Sun and so within
+ * a fraction of a degree of the Earth from 170 au) over a ten-sided bus; the RTG
+ * boom with its three plutonium generators on one side, the science boom with the
+ * scan platform on the other, and the 13 m magnetometer boom.
+ */
+function voyager(): Partial<Model> {
+  const root = new THREE.Group();
+  root.add(cyl('silver', 0.89, 0.47, 'z', 0, 0, 0.1, 0.89, 10)); // bus
+  root.add(cyl('gold', 0.6, 0.35, 'z', 0, 0, 0.5, 0.6, 10)); // propellant tank cover
+  const hga = dish(1.83, 0.45, -1);
+  hga.position.set(0, 0, -0.3);
+  root.add(hga, cyl('frame', 0.03, 0.8, 'z', 0, 0, -0.9), cyl('grey', 0.12, 0.3, 'z', 0, 0, -1.3));
+  // RTG boom: three generators, finned cylinders
+  root.add(box('frame', 2.9, 0.06, 0.06, -2.3, 0, 0.3));
+  for (let k = 0; k < 3; k++) {
+    root.add(cyl('dark', 0.2, 0.5, 'x', -2.3 - k * 0.55, 0, 0.3));
+    for (let f = 0; f < 6; f++) {
+      const fin = box('dark', 0.5, 0.03, 0.42, -2.3 - k * 0.55, 0, 0.3);
+      fin.rotation.x = (f * Math.PI) / 6;
+      root.add(fin);
+    }
+  }
+  // science boom and scan platform (cameras)
+  root.add(box('frame', 2.4, 0.07, 0.07, 2.1, 0, 0.35));
+  root.add(box('grey', 0.5, 0.45, 0.45, 3.3, 0, 0.55), cyl('dark', 0.09, 0.5, 'x', 3.6, 0.12, 0.62), cyl('dark', 0.06, 0.35, 'x', 3.6, -0.12, 0.62));
+  root.add(cyl('grey', 0.12, 0.6, 'x', 2.6, 0, 0.35)); // cosmic ray / plasma instruments
+  // magnetometer boom: a 13 m triangular truss, sensors at the end
+  root.add(box('frame', 0.05, 13, 0.05, 0.3, 6.9, 0.2), box('frame', 0.05, 13, 0.05, 0.4, 6.9, 0.35));
+  root.add(box('white', 0.12, 0.12, 0.12, 0.35, 13.4, 0.28), box('white', 0.1, 0.1, 0.1, 0.35, 7.5, 0.28));
+  // two long plasma-wave antennas
+  for (const s of [1, -1]) {
+    const w = cyl('silver', 0.012, 10, 'x', 0, 0, 0);
+    w.position.set(-0.3, s * 0.3, 0.45);
+    w.rotation.z = s * 0.6;
+    root.add(w);
+  }
+  return { root, trackers: [] };
+}
+
+/**
+ * Juno: a hexagonal bus with three 9 m solar wings at 120° (one shorter, carrying
+ * the magnetometers) and the high-gain antenna on top, spinning about the axis
+ * that points at the Sun and the Earth.
+ */
+function juno(): Partial<Model> {
+  const root = new THREE.Group();
+  root.add(cyl('dark', 1.75, 3.5, 'z', 0, 0, 0, 1.75, 6));
+  root.add(cyl('gold', 1.2, 0.9, 'z', 0, 0, -2.1, 1.2, 6)); // radiation vault and engine skirt
+  const hga = dish(1.25, 0.32, 1);
+  hga.position.set(0, 0, 1.8);
+  root.add(hga, cyl('grey', 0.18, 0.5, 'z', 0, 0, 2.4));
+  for (let k = 0; k < 3; k++) {
+    const a = (k * 2 * Math.PI) / 3;
+    const wing = new THREE.Group();
+    wing.rotation.z = a;
+    const n = k === 0 ? 3 : 4; // the magnetometer wing is a panel short, with the sensors on a boom
+    for (let p = 0; p < n; p++) wing.add(panel(2.2, 2.65, 1.75 + 0.1 + p * 2.25 + 1.1, 0, 0.9));
+    if (k === 0) wing.add(box('frame', 2.2, 0.1, 0.1, 1.85 + 3 * 2.25 + 1.1, 0, 0.9), box('white', 0.4, 0.4, 0.4, 1.85 + 3 * 2.25 + 2.2, 0, 0.9));
+    root.add(wing);
+  }
+  return { root, trackers: [], sunSpin: 12 };
+}
+
+/**
+ * BepiColombo's cruise stack, as it flies until Mercury orbit: the transfer module
+ * with its two long wings and ion engines, ESA's MPO (radiator, one tilting
+ * array), and JAXA's octagonal Mio inside the sunshade on top.
+ */
+function bepicolombo(): Partial<Model> {
+  const root = new THREE.Group();
+  root.add(box('gold', 3.7, 3.6, 2.2, 0, 0, -1.6)); // MTM
+  for (const x of [-0.6, 0.6]) root.add(cyl('dark', 0.25, 0.4, 'z', x, 0.5, -2.9, 0.35)); // ion thrusters
+  root.add(box('silver', 3.6, 2.4, 3.9, 0, 0, 1.4)); // MPO
+  root.add(box('white', 0.05, 2.2, 3.6, -1.83, 0, 1.4)); // MPO radiator
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 2.0, 2.4, 8, 1, true).rotateX(Math.PI / 2), M().whiteShell); // MOSIF sunshade
+  cone.position.set(0, 0, 4.5);
+  root.add(cone, cyl('dark', 1.0, 1.0, 'z', 0, 0, 4.4, 1.0, 8)); // Mio inside
+  const trackers: THREE.Object3D[] = [];
+  for (const s of [1, -1]) {
+    const wing = new THREE.Group();
+    wing.position.set(0, s * 1.8, -1.6);
+    wing.add(box('frame', 0.1, 0.8, 0.1, 0, s * 0.4, 0));
+    for (let p = 0; p < 5; p++) wing.add(panel(2.6, 2.4, 0, s * (0.9 + 1.2 + p * 2.45), 0));
+    root.add(wing);
+    trackers.push(wing);
+  }
+  const mpo = new THREE.Group();
+  mpo.position.set(1.8, 0, 1.4);
+  mpo.add(box('frame', 0.6, 0.1, 0.1, 0.3, 0, 0), panel(7.5, 2.0, 4.4, 0, 0));
+  mpo.rotation.z = Math.PI / 2;
+  root.add(mpo);
+  return { root, trackers };
+}
+
 function build(kind: Kind, seed: number): Model {
   const rand = mulberry32(seed * 2654435761);
   const parts =
@@ -377,6 +477,9 @@ function build(kind: Kind, seed: number): Model {
     : kind === 'hubble' ? hubble()
     : kind === 'rocket' ? rocket(rand)
     : kind === 'fragment' ? fragment(rand)
+    : kind === 'voyager' ? voyager()
+    : kind === 'juno' ? juno()
+    : kind === 'bepicolombo' ? bepicolombo()
     : bus(rand);
   const root = parts.root!;
   let trackers = parts.trackers ?? [];
@@ -387,7 +490,7 @@ function build(kind: Kind, seed: number): Model {
     trackers = [];
     tumble = randomTumble(rand, 0.3, 2);
   }
-  return { root, radius: radiusOf(root), trackers, tumble };
+  return { root, radius: radiusOf(root), trackers, tumble, sunSpin: parts.sunSpin };
 }
 
 /** Distance from the root's origin to its farthest vertex. */
@@ -587,17 +690,22 @@ export class Spacecraft {
 
   /**
    * Place and light the model. `sunDir` is the unit vector to the Sun, `sunlit`
-   * the fraction of the solar disc visible (0 in Earth's shadow), `simS` sim seconds.
+   * the fraction of the solar disc visible (0 in Earth's shadow), `simS` sim seconds,
+   * `fromCentre` its position from its world's centre (for its attitude), if the
+   * scene's origin isn't there.
    */
-  update(pos: THREE.Vector3, vel: THREE.Vector3, sunDir: THREE.Vector3, sunlit: number, simS: number, visible: boolean) {
+  update(pos: THREE.Vector3, vel: THREE.Vector3, sunDir: THREE.Vector3, sunlit: number, simS: number, visible: boolean, fromCentre = pos) {
     const m = this.model;
     this.object.visible = visible && m !== null;
     if (!m || !this.object.visible) return;
     this.object.position.copy(pos);
     if (m.tumble) {
       this.body.quaternion.setFromAxisAngle(m.tumble.axis, (m.tumble.rate * simS) % (2 * Math.PI)).multiply(m.tumble.q0);
+    } else if (m.sunSpin) {
+      // spin axis (+Z) on the Sun, turning about it
+      this.body.quaternion.setFromUnitVectors(_z.set(0, 0, 1), sunDir).multiply(_q.setFromAxisAngle(_x.set(0, 0, 1), THREE.MathUtils.degToRad((m.sunSpin * simS) % 360)));
     } else {
-      orbitFrame(pos, vel, this.body.quaternion);
+      orbitFrame(fromCentre, vel, this.body.quaternion);
     }
     // arrays: the Sun's direction in the body frame, projected on each mount's XZ plane
     _s.copy(sunDir).applyQuaternion(_q.copy(this.body.quaternion).invert());
@@ -609,7 +717,7 @@ export class Spacecraft {
     // in Earth's shadow over the night side a dark hull would vanish entirely
     this.shade.rim = 1 - sunlit;
     // light off the Earth below: strong over the day side, nothing over the night side
-    const up = _z.copy(pos).normalize();
+    const up = _z.copy(fromCentre).normalize();
     this.earthshine.position.copy(up).negate();
     this.earthshine.intensity = 0.05 + 0.7 * Math.max(0, up.dot(sunDir));
   }

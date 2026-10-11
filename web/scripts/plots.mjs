@@ -124,7 +124,7 @@ function scaling(t) {
   let body = yGrid(t, y, [1, 10, 100, 1000, 10000], M.l, W - M.r, (v) => (v >= 1000 ? `${v / 1000} s` : `${v} ms`));
   const series = [
     { key: 'brute_ms', label: 'all pairs, O(N²)', c: t.s2 },
-    { key: 'grid_ms', label: 'spatial hash, O(N)', c: t.s1 },
+    { key: 'grid_ms', label: 'spatial grid, O(N)', c: t.s1 },
   ];
   for (const s of series) {
     const ln = line().x((d) => x(d.n)).y((d) => y(d[s.key]));
@@ -136,7 +136,7 @@ function scaling(t) {
   }
   for (const n of [10000, 30000, 100000]) body += `<text x="${x(n)}" y="${H - M.b + 18}" text-anchor="middle" font-size="11" fill="${t.muted}">${(n / 1000).toFixed(0)}k objects</text>`;
   const last = pts[pts.length - 1];
-  return frame(t, W, H, 'Conjunction sieve: every pair closer than 10 km, one instant', `Native, ${b.machine}, single thread. At 100k objects the hash is ${Math.round(last.brute_ms / last.grid_ms)}× faster (${last.grid_ms.toFixed(1)} ms vs ${(last.brute_ms / 1000).toFixed(1)} s). Both return identical pairs.`, body);
+  return frame(t, W, H, 'Conjunction sieve: every pair closer than 10 km, one instant', `Native, ${b.machine}, single thread. At 100k objects the grid is ${Math.round(last.brute_ms / last.grid_ms)}× faster (${last.grid_ms.toFixed(1)} ms vs ${(last.brute_ms / 1000).toFixed(1)} s). Both return identical pairs.`, body);
 }
 
 for (const [name, fn] of [
