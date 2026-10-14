@@ -17,3 +17,5 @@ web/public/data/ephemeris-*.bin
 web/public/data/tno.bin
 # written by `pnpm validate` and WRITE_VALIDATION=1 tests (CI regenerates them for the plots)
 docs/validation/*.csv
+# the demo video is a release asset (tag demo-video), kept out of git for size
+docs/media/*.mp4

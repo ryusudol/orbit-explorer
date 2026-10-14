@@ -6,7 +6,7 @@
 
 <p align="center"><img src="docs/media/orbit.webp" width="420" alt="The laser mesh flowing over the Atlantic at 10 minutes per second while the London–New York route re-routes"><br><sub>10 min/s: satellites move, the mesh rebuilds and the London → New York path re-routes.</sub></p>
 
-<p align="center"><b><a href="docs/media/orbit-explorer-x.mp4">▶ Watch the 90-second demo</a></b> <sub>(1080p, 60 fps): the ISS, laser routing, a 34 m conjunction, the Moon and Mars, Jupiter and Saturn, out to the Oort cloud</sub></p>
+<p align="center"><b><a href="https://github.com/ryusudol/orbit-explorer/releases/download/demo-video/orbit-explorer-x.mp4">▶ Watch the 90-second demo</a></b> <sub>(1080p, 60 fps): the ISS, laser routing, a 34 m conjunction, the Moon and Mars, Jupiter and Saturn, out to the Oort cloud</sub></p>
 
 It also flies to **every planet, the Moon and out to the Oort cloud**. Every known moon of Mars and the giant planets (all 115 of Jupiter's, 290 of Saturn's, 28 of Uranus' and 16 of Neptune's) and every spacecraft orbiting another world (LRO, Danuri, MRO, Juno, BepiColombo arriving at Mercury, and more) fly on JPL's own trajectories. The Moon and Mars have 16k LRO and Viking maps with laser-altimeter relief, Mercury MESSENGER's, Venus Magellan's radar under its clouds, the giants Hubble's 2025 global maps and Saturn its rings. Out past Neptune lie the real Kuiper belt (7,299 objects), the heliosphere's edges, a model of the Oort cloud, and **Voyager 1 and 2** on their actual paths since 1977, 172 and 144 au out. A relay planner shows when a rover on the Moon or Mars can talk to Earth, and how long the signal takes.
 
@@ -183,6 +183,8 @@ Each close-up is framed to fit the model, so the three aren't to the same scale.
 
 ## What the data says
 
+From the 9 October 2026 catalog used under *Numbers*. The live site refreshes its snapshot every 6 hours, so its counts drift from these.
+
 - **Starlink is its own biggest traffic hazard.** Of the 2,981 sub-5 km encounters in the next hour, 55% are Starlink–Starlink, and 68% of all of them happen at more than 10 km/s, between crossing planes of the dense 450–485 km shells. Another 30% involve debris or a spent rocket body, which only the full catalog shows. A density estimate (5,000 satellites in a ~10 km-thick shell, σ = π·5², v ≈ 10 km/s) predicts thousands per hour unless phasing is actively maintained. TLE errors are ~1 km, so these are screening hits, not collision probabilities.
 - **Light in vacuum beats glass past a few thousand kilometers.** Ignoring slant range and grid zig-zags, the break-even is where the climb to the shell and back down (2h) equals the fiber penalty: 2h / (n − 1) ≈ 2,000 km for a 480 km shell with n = 1.468. Real uplinks at 25° elevation and +Grid staircases push it toward ~3,000 km. London–New York saves ~6 ms one way, and the saving grows with distance.
 - **Coverage is total, and uneven.** Every point on Earth sees at least 6 Starlinks above 25°, 46 on average, but density peaks near ±50° where the 53° shells turn around.
@@ -234,7 +236,7 @@ web/             Vite + React 19 + Three.js (WebGPURenderer, TSL) + D3
   scripts/       NASA textures → JPEG + tiled KTX2, sky (Milky Way map, Hipparcos stars), Moon/Mars color + relief,
                  Mercury/Venus/giants/moons (worlds), VSOP87 truncation (vsop), validation/benchmark plots
 data/            snapshot builders: CelesTrak (or Space-Track with credentials), JPL Horizons, JPL Small-Body Database
-docs/            validation plots, benchmarks, blog draft
+docs/            validation plots, benchmarks, screenshots
 .github/         CI, Cloudflare Pages deploy (on push, and every 6 h with fresh snapshots)
 ```
 
