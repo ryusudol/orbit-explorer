@@ -17,7 +17,7 @@ export interface AnalysisRequest {
 export interface AnalysisResult {
   type: 'result';
   jd: number;
-  /** pairs of catalogue indices */
+  /** pairs of catalog indices */
   edges: Uint32Array;
   route: { totalKm: number; uplinkKm: number; downlinkKm: number; path: Uint32Array } | null;
   coverage: Uint16Array | null;

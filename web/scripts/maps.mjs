@@ -17,7 +17,7 @@ export function reliefRgba(h, width, height, radiusKm) {
       const xe = (x + 1) % width, xw = (x - 1 + width) % width;
       const sx = (h[y * width + xe] - h[y * width + xw]) / (2 * dx);
       const sy = (h[yn * width + x] - h[ys * width + x]) / ((ys - yn) * dy);
-      // surface normal in (east, north, up) = (−∂h/∂x, −∂h/∂y, 1) normalised
+      // surface normal in (east, north, up) = (−∂h/∂x, −∂h/∂y, 1) normalized
       const k = 1 / Math.sqrt(sx * sx + sy * sy + 1);
       const e = Math.round(127.5 - 127.5 * sx * k), n = Math.round(127.5 - 127.5 * sy * k);
       const i = 4 * (y * width + x);
@@ -29,7 +29,7 @@ export function reliefRgba(h, width, height, radiusKm) {
 }
 
 /**
- * Bilinear resample of a float grid in memory, pixel centres aligned, wrapping in
+ * Bilinear resample of a float grid in memory, pixel centers aligned, wrapping in
  * longitude. sharp can't take float samples as raw input: it reads the bytes as
  * 8-bit pixels and every height comes out 0, so Mars' relief was once flat.
  */

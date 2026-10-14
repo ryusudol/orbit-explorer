@@ -19,19 +19,19 @@ export const RELAY_MIN_ELEV_DEG = 10;
 /** Body-fixed -> ICRF orientation of a world. */
 export const orientation = (body: BodyId, jd: number): Mat3 => orientationOf(body, jd);
 
-/** Body's centre relative to the Earth's (km, ICRF); the Sun's for the Oort cloud. */
+/** Body's center relative to the Earth's (km, ICRF); the Sun's for the Oort cloud. */
 export function bodyFromEarth(body: BodyId, jd: number, P = precession(jd)): Vec3 {
   if (body === 'earth') return [0, 0, 0];
   return mul(transpose(P), geocentric(body, jd, P));
 }
 
-/** One-way light time between the Earth's and the body's centres, seconds. */
+/** One-way light time between the Earth's and the body's centers, seconds. */
 export function lightTimeS(body: BodyId, jd: number): number {
   const v = bodyFromEarth(body, jd);
   return Math.hypot(v[0], v[1], v[2]) / C_KMS;
 }
 
-/** Distance between two worlds' centres, km. */
+/** Distance between two worlds' centers, km. */
 export function distanceKm(a: BodyId, b: BodyId, jd: number): number {
   const P = precession(jd);
   const u = bodyFromEarth(a, jd, P), v = bodyFromEarth(b, jd, P);

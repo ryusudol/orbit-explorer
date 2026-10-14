@@ -3,7 +3,7 @@
  * alpha steps, DIN-style type with short uppercase labels, square corners,
  * ghost rectangles that invert on hover, underlines for the chosen option,
  * hairlines instead of boxes, no shadows, gradients or glow in the chrome.
- * Round shapes belong to data only (dots, rings, markers); colour is reserved
+ * Round shapes belong to data only (dots, rings, markers); color is reserved
  * for data too: object groups and severity.
  */
 
@@ -163,7 +163,7 @@ a:hover {
   overflow: hidden;
 }
 
-/* place names on the globe: stencilled tags */
+/* place names on the globe: stenciled tags */
 .scene-label {
   position: absolute;
   left: 0;
@@ -809,7 +809,7 @@ button.glass:hover {
   transition: opacity 0.3s, transform 0.4s var(--ease);
 }
 
-/* the colour key, which is also the filter */
+/* the color key, which is also the filter */
 .legend-bar {
   display: flex;
   gap: 4px;
@@ -1816,7 +1816,7 @@ select option {
   height: 3px;
 }
 
-/* catalogue */
+/* catalog */
 .breakdown {
   display: flex;
   flex-direction: column;
@@ -2588,7 +2588,7 @@ select option {
   font-weight: 600;
   letter-spacing: 0.42em;
   text-transform: uppercase;
-  padding-left: 0.42em; /* optically centre the tracked word */
+  padding-left: 0.42em; /* optically center the tracked word */
 }
 
 .loader-tag {

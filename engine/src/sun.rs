@@ -37,7 +37,7 @@ pub fn sun_ra_dec(jd: f64) -> (f64, f64) {
 /// Fraction of the solar disc visible from `r_sat` (1 = full sun, 0 = umbra).
 ///
 /// Conical shadow: compare the apparent angular radii of Earth and Sun seen
-/// from the satellite with the angle between their centres. The penumbra is
+/// from the satellite with the angle between their centers. The penumbra is
 /// interpolated linearly across its angular width.
 pub fn illumination(r_sat: V3, r_sun: V3) -> f64 {
     let d_earth = norm(r_sat);
@@ -48,7 +48,7 @@ pub fn illumination(r_sat: V3, r_sun: V3) -> f64 {
     let d_sun = norm(to_sun);
     let theta_e = (EARTH_SHADOW_RADIUS_KM / d_earth).asin();
     let theta_s = (SUN_RADIUS_KM / d_sun).asin();
-    // angle between the directions to Earth's centre (-r_sat) and to the Sun
+    // angle between the directions to Earth's center (-r_sat) and to the Sun
     let c = (-dot(r_sat, to_sun) / (d_earth * d_sun)).clamp(-1.0, 1.0);
     let theta = c.acos();
     if theta >= theta_e + theta_s {

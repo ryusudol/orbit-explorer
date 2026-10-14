@@ -5,7 +5,7 @@
 //! For a satellite at geocentric radius r, the ground cap that sees it above
 //! elevation e has Earth-central half-angle
 //!     lambda = acos(R cos(e) / r) - e
-//! and a cell is inside when the angle between the cell centre and the
+//! and a cell is inside when the angle between the cell center and the
 //! sub-satellite point is below lambda.
 
 use crate::frames::{norm, V3};
@@ -24,7 +24,7 @@ pub fn coverage_grid(sats_ecef: impl Iterator<Item = V3>, nlat: usize, nlon: usi
     out.resize(nlat * nlon, 0);
     let dlat = PI / nlat as f64;
     let dlon = 2.0 * PI / nlon as f64;
-    // cell-centre unit vectors are separable: precompute sin/cos per row and column
+    // cell-center unit vectors are separable: precompute sin/cos per row and column
     let rows: Vec<(f64, f64)> = (0..nlat).map(|i| (-FRAC_PI_2 + (i as f64 + 0.5) * dlat).sin_cos()).collect();
     let cols: Vec<(f64, f64)> = (0..nlon).map(|j| (-PI + (j as f64 + 0.5) * dlon).sin_cos()).collect();
 

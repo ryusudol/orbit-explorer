@@ -12,7 +12,7 @@ import { Propagator, gmst, illumination, loadEngine, sun_position_teme, teme_to_
 import { GROUP_HEX } from '../palette';
 import { Category, Group, subset, type Catalog } from '../sim/catalog';
 import { cityById } from '../sim/cities';
-import { capHalfAngle, fibreLatencyMs, geodeticToEcef, greatCircleKm, vacuumLatencyMs } from '../sim/physics';
+import { capHalfAngle, fiberLatencyMs, geodeticToEcef, greatCircleKm, vacuumLatencyMs } from '../sim/physics';
 import { PropagationPool } from '../sim/propagationPool';
 import { SimClock, jdToMs } from '../sim/time';
 import { useStore, type Layers } from '../state/store';
@@ -70,7 +70,7 @@ const ARC_VIEW = new THREE.Vector3(-0.7, 0.55, -0.15).normalize();
 /** Zooming out while following swings the view from CLOSE_VIEW to ARC_VIEW between these distances (× orbit radius). */
 const SWING_NEAR = 0.004;
 const SWING_FAR = 0.4;
-/** A follow view spans metres to thousands of km, so zoom steps are coarser. */
+/** A follow view spans meters to thousands of km, so zoom steps are coarser. */
 const FOLLOW_ZOOM = 2.5;
 
 /**
@@ -89,7 +89,7 @@ function textureTier(): 'uhd' | 'standard' {
 const easeInOutCubic = (u: number) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
 const matrix4 = (m: Mat3) => new THREE.Matrix4().set(m[0], m[1], m[2], 0, m[3], m[4], m[5], 0, m[6], m[7], m[8], 0, 0, 0, 0, 1);
 
-/** A camera move: eased, about the Earth's centre so it never cuts through the planet. */
+/** A camera move: eased, about the Earth's center so it never cuts through the planet. */
 interface Flight {
   t0: number;
   dur: number;
@@ -101,7 +101,7 @@ interface Flight {
   track?: () => void;
   /** destination fixed to the ground (turns with the Earth in Earth-fixed view) */
   earthFixed: boolean;
-  /** move relative to the target (a close approach to a moving object), not about the Earth's centre */
+  /** move relative to the target (a close approach to a moving object), not about the Earth's center */
   relative: boolean;
   done?: () => void;
 }
@@ -138,19 +138,19 @@ export class SceneController {
   private craft = new Spacecraft();
   /** the Moon, Mars and their orbiters, and where every world sits in the scene */
   private sys!: SolarSystem;
-  /** everything drawn relative to the Earth's centre: satellites, links, route, orbits, the model */
+  /** everything drawn relative to the Earth's center: satellites, links, route, orbits, the model */
   private earthLayers = new THREE.Group();
   /** model of a followed spacecraft around another world */
   private orbCraft = new Spacecraft();
-  /** the world the scene is centred on; while travelling, the one we left until we arrive */
+  /** the world the scene is centered on; while traveling, the one we left until we arrive */
   private focus: BodyId = 'earth';
   /** geocentric position of the scene's origin, km */
   private anchor: Vec3 = [0, 0, 0];
   /**
-   * Floating origin: the scene's origin sits this far from the focused world's centre.
+   * Floating origin: the scene's origin sits this far from the focused world's center.
    * Zero, except near an orbiter far from its world (a Voyager, 2.5×10¹⁰ km from the
    * Sun): there the origin rides with it, because some GPU paths (Line2's vertex shader)
-   * compose matrices in float32 and lose kilometres that far out.
+   * compose matrices in float32 and lose kilometers that far out.
    */
   private rebase = new THREE.Vector3();
   private travel: { from: BodyId; to: BodyId; t0: number; plan: TravelPlan; after?: () => void } | null = null;
@@ -170,7 +170,7 @@ export class SceneController {
   private edges: Uint32Array | null = null;
   private routePath: Uint32Array | null = null;
   private routePoints = new Float64Array(MAX_ROUTE_POINTS * 3);
-  /** one-period tracks centred on now: the selected object's every frame, the other's twice a second */
+  /** one-period tracks centered on now: the selected object's every frame, the other's twice a second */
   private tracks = [0, 1].map(() => ({ for: -1, at: 0, pts: new Float64Array(ORBIT_SAMPLES * 3) }));
   private trackJd = new Float64Array(ORBIT_SAMPLES);
   private orbitTint = new THREE.Color();
@@ -203,9 +203,9 @@ export class SceneController {
   /** the pending once-per-frame hover pick, and where the pointer was for it */
   private hoverPick = { raf: 0, x: 0, y: 0 };
   private disposed = false;
-  /** camera distance the zoom buttons are easing towards */
+  /** camera distance the zoom buttons are easing toward */
   private zoomGoal: number | null = null;
-  /** screen area covered by UI panels, so the globe can centre in what's left */
+  /** screen area covered by UI panels, so the globe can center in what's left */
   private insets = { left: 0, right: 0, top: 0, bottom: 0 };
   private insetsSet = false;
   private viewShift = { x: 0, y: 0 };
@@ -320,8 +320,8 @@ export class SceneController {
     const ktx2 = new KTX2Loader().setTranscoderPath('/basis/').detectSupport(this.renderer);
     const loadKtx = (url: string) => ktx2.loadAsync(url).then((t) => ((t.colorSpace = THREE.SRGBColorSpace), (t.anisotropy = 8), t));
     /** tiles sorted by how squarely they face the camera now */
-    const byView = (centre: (c: number, r: number) => THREE.Vector3, toward: THREE.Vector3) =>
-      [...ALL_TILES].sort((p, q) => centre(q[0], q[1]).dot(toward) - centre(p[0], p[1]).dot(toward));
+    const byView = (center: (c: number, r: number) => THREE.Vector3, toward: THREE.Vector3) =>
+      [...ALL_TILES].sort((p, q) => center(q[0], q[1]).dot(toward) - center(p[0], p[1]).dot(toward));
 
     const earth = Promise.all([loadKtx('/textures/earth-day.ktx2'), loadKtx('/textures/earth-night.ktx2')])
       .catch(() => Promise.all([load('/textures/earth-day.jpg'), load('/textures/earth-night.jpg')]))
@@ -349,15 +349,15 @@ export class SceneController {
 
     const uhd = sky.then(async () => {
       if (tier !== 'uhd' || this.disposed) return;
-      // the camera's direction from the Earth's centre, in the Earth-fixed frame
+      // the camera's direction from the Earth's center, in the Earth-fixed frame
       const g = gmst(this.clock.jd);
       const up = this.camera.position.clone().normalize();
-      const earthFailed = await loadInOrder(byView(Earth.tileCentre, up.clone().applyAxisAngle(Z_AXIS, -g)), async (c, r) => {
+      const earthFailed = await loadInOrder(byView(Earth.tileCenter, up.clone().applyAxisAngle(Z_AXIS, -g)), async (c, r) => {
         const [d, n] = await Promise.all([loadKtx(`/textures/earth-day-uhd-${c}-${r}.ktx2`), loadKtx(`/textures/earth-night-uhd-${c}-${r}.ktx2`)]);
         if (!this.disposed) this.earth.setTile(c, r, d, n);
       });
       // the sky behind the globe is what the camera looks at: away from itself
-      const skyFailed = await loadInOrder(byView(Sky.tileCentre, up.negate()), async (c, r) => {
+      const skyFailed = await loadInOrder(byView(Sky.tileCenter, up.negate()), async (c, r) => {
         const t = await loadKtx(`/textures/milkyway-uhd-${c}-${r}.ktx2`);
         if (!this.disposed) this.sky.setMilkyWayTile(c, r, t);
       });
@@ -368,7 +368,7 @@ export class SceneController {
     fetch('/data/stars.bin')
       .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`stars: HTTP ${r.status}`))))
       .then((buf) => !this.disposed && this.scene.add(this.sky.setStars(decodeStars(buf), this.renderer.getPixelRatio(), new THREE.Matrix3().set(...P))))
-      .catch((err) => console.warn('Star catalogue unavailable', err));
+      .catch((err) => console.warn('Star catalog unavailable', err));
   }
 
   /** Where the opening view looks down: North America, or the visitor if they share their location. */
@@ -478,7 +478,7 @@ export class SceneController {
 
   /**
    * While following, "up" is the local vertical, so the horizon stays level all the way
-   * round (with north up, a polar orbit's chase view rolls over near the equator).
+   * around (with north up, a polar orbit's chase view rolls over near the equator).
    * Eased, so entering and leaving follow mode turn the view rather than snap it.
    */
   private updateUp(dt: number, followed: number | null) {
@@ -496,7 +496,7 @@ export class SceneController {
 
   /**
    * Tell the renderer which screen margins the UI covers. The projection is
-   * shifted (not the camera) so the globe sits in the centre of the free area.
+   * shifted (not the camera) so the globe sits in the center of the free area.
    */
   setViewInsets(insets: { left: number; right: number; top: number; bottom: number }) {
     this.insets = insets;
@@ -593,7 +593,7 @@ export class SceneController {
     this.earth.setSun(sunDir.clone().applyAxisAngle(Z_AXIS, -g));
     this.sys.update(jd, sun);
     if (!this.travel) {
-      // the scene stays centred on the world in focus as it moves (Mars at ~20 km/s relative to us)
+      // the scene stays centered on the world in focus as it moves (Mars at ~20 km/s relative to us)
       const a = this.sys.at(this.focus);
       // orbiter states for this frame before the camera follows one
       if (this.focus !== 'earth') this.sys.advance(this.focus, jd);
@@ -604,7 +604,7 @@ export class SceneController {
     else this.lastOrient = null;
 
     // follow mode: keep the camera's offset from the object fixed in the object's
-    // orbital frame, so a chase view stays a chase view all the way round
+    // orbital frame, so a chase view stays a chase view all the way around
     if (this.travel) {
       this.stepTravel(now);
     } else if (this.flight) {
@@ -655,7 +655,7 @@ export class SceneController {
     this.controls.zoomSpeed = s.follow ? 0.8 * FOLLOW_ZOOM : this.focus === 'oort' ? 2.4 : 0.8;
     this.updateUp(dt, s.follow && this.focus === 'earth' && sel !== null && this.valid[sel] ? sel : null);
     if (!this.travel) this.controls.update();
-    // close to a model the near plane has to come in to metres (the log depth buffer keeps the
+    // close to a model the near plane has to come in to meters (the log depth buffer keeps the
     // precision). Not below NEAR_MIN_KM: under ~0.5 m (far/near ~1e10) the view floods with glare.
     const near = this.travel ? 1 : THREE.MathUtils.clamp(this.camera.position.distanceTo(this.controls.target) * 0.01, NEAR_MIN_KM, 1);
     if (Math.abs(near / this.camera.near - 1) > 0.1) {
@@ -677,7 +677,7 @@ export class SceneController {
     this.coverage.mesh.visible = atEarth && layers.coverage;
     this.cones.visible = atEarth && layers.cones;
     if (this.earthLayers.visible) {
-      // the camera relative to the Earth's centre: what every Earth layer is drawn against
+      // the camera relative to the Earth's center: what every Earth layer is drawn against
       const camE = cam.clone().sub(this.earth.group.position);
       this.updateCraft(camE, jd, sel, sunDir);
       this.updateSatellites(camE, layers, sel);
@@ -686,7 +686,7 @@ export class SceneController {
       const ev = s.conj.selected !== null ? s.conj.events[s.conj.selected] : undefined;
       // a conjunction is shown only alongside one of its two objects
       const pair = ev && sel !== null && (ev.a === sel || ev.b === sel) ? ev : undefined;
-      // a hover from the Moon or Mars carries a colour and indexes their orbiters, not the catalogue
+      // a hover from the Moon or Mars carries a color and indexes their orbiters, not the catalog
       this.updateMarkers(camE, sel, pair, s.hover && !s.hover.color ? s.hover.index : null);
       this.updateOrbits(camE, jd, sel, pair);
     }
@@ -809,7 +809,7 @@ export class SceneController {
     put(b.x, b.y, b.z);
     this.route.update(pts, m, cam);
 
-    // packets travelling hop by hop at a visible (not physical) speed
+    // packets traveling hop by hop at a visible (not physical) speed
     const segLen: number[] = [];
     let total = 0;
     for (let k = 0; k < m - 1; k++) {
@@ -876,7 +876,7 @@ export class SceneController {
       }
       // The selected track is resampled every frame at fixed offsets from now, so it rides
       // along with the object: samples fixed in space would let the chords beside a following
-      // camera crawl past it and jump at each resample. Its centre sample is the object's
+      // camera crawl past it and jump at each resample. Its center sample is the object's
       // exact position, so close up the track runs through the model.
       if (k === 0 || tr.for !== i || now - tr.at > 500) {
         const periodDays = Math.min(this.prop.info(i)[3], 1440) / 1440;
@@ -1021,7 +1021,7 @@ export class SceneController {
     }
     this.colorsDirty = true;
   }
-  /** the object whose follow just ended, so the zoom-out can keep it centred */
+  /** the object whose follow just ended, so the zoom-out can keep it centered */
   private leaving: number | null = null;
 
   /** Chase position: behind the object along its track and a little above, so the horizon is in view. */
@@ -1096,8 +1096,8 @@ export class SceneController {
           : this.camera.position.clone();
     // a GEO object sits outside the usual framing distance: back off far enough to keep it in front
     const dist = Math.max(this.fitDistance(), p.length() * 1.6);
-    const centre = this.rebase.clone().negate(); // the world's centre in scene coordinates
-    this.startFlight(p.clone().setLength(dist).add(centre), centre, 1500, { earthFixed: true });
+    const center = this.rebase.clone().negate(); // the world's center in scene coordinates
+    this.startFlight(p.clone().setLength(dist).add(center), center, 1500, { earthFixed: true });
   }
 
   /** Back to the opening view, smoothly. */
@@ -1128,7 +1128,7 @@ export class SceneController {
     const w = parent?.clientWidth || window.innerWidth, h = parent?.clientHeight || window.innerHeight;
     const free = Math.max(240, Math.min(w - this.insets.left - this.insets.right, h - this.insets.top - this.insets.bottom));
     const tanFit = ((0.45 * free) / (h / 2)) * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
-    // a surface point θ off the axis is seen atan(R sinθ / (d − R cosθ)) off centre from distance d
+    // a surface point θ off the axis is seen atan(R sinθ / (d − R cosθ)) off center from distance d
     const d = R_EARTH * Math.cos(theta) + (R_EARTH * Math.sin(theta)) / tanFit;
     const dist = THREE.MathUtils.clamp(d, R_EARTH + 2000, this.fitDistance('earth'));
     this.startFlight(axis.multiplyScalar(dist), new THREE.Vector3(), 1500, { earthFixed: true });
@@ -1143,7 +1143,7 @@ export class SceneController {
     this.zoomGoal = null;
     this.followFrame = null;
     this.followSwing = null;
-    // the target moves between the object and the Earth's centre mid-flight
+    // the target moves between the object and the Earth's center mid-flight
     this.controls.minDistance = Math.max(1e-3, opts.minDistance ?? 20);
     this.flight = {
       t0: performance.now(),
@@ -1164,15 +1164,15 @@ export class SceneController {
     f.track?.();
     const u = Math.min(1, (now - f.t0) / f.dur);
     const k = easeInOutCubic(u);
-    // direction: slerp about the centre (the Earth's, or the object's when closing in on it);
+    // direction: slerp about the center (the Earth's, or the object's when closing in on it);
     // distance: geometric (log-linear) so the long zoom feels even and never dips inside the planet
-    const centre = f.relative ? f.toTarget : new THREE.Vector3();
+    const center = f.relative ? f.toTarget : new THREE.Vector3();
     const from = f.relative ? f.fromPos.clone().sub(f.fromTarget) : f.fromPos.clone();
-    const to = f.toPos.clone().sub(centre);
+    const to = f.toPos.clone().sub(center);
     const r0 = from.length(), r1 = to.length();
     const a = from.divideScalar(r0), b = to.divideScalar(r1);
     const q = new THREE.Quaternion().slerpQuaternions(new THREE.Quaternion(), new THREE.Quaternion().setFromUnitVectors(a, b), k);
-    this.camera.position.copy(a.applyQuaternion(q).multiplyScalar(Math.exp(Math.log(r0) + (Math.log(r1) - Math.log(r0)) * k))).add(centre);
+    this.camera.position.copy(a.applyQuaternion(q).multiplyScalar(Math.exp(Math.log(r0) + (Math.log(r1) - Math.log(r0)) * k))).add(center);
     if (f.relative) this.controls.target.copy(f.toTarget);
     else this.controls.target.lerpVectors(f.fromTarget, f.toTarget, k);
     if (u >= 1) {
@@ -1240,7 +1240,7 @@ export class SceneController {
 
   // ------------------------------------------------------------ worlds
 
-  /** The world being shown: the focus, or while travelling whichever world is nearer. */
+  /** The world being shown: the focus, or while traveling whichever world is nearer. */
   private nearestWorld(): BodyId {
     const c = this.camera.position;
     let best: BodyId = this.focus;
@@ -1256,14 +1256,14 @@ export class SceneController {
     return best;
   }
 
-  /** An orbiter's position in scene coordinates (its world's centre, less the floating origin's offset). */
+  /** An orbiter's position in scene coordinates (its world's center, less the floating origin's offset). */
   private sceneOf(o: OrbiterState, out = new THREE.Vector3()): THREE.Vector3 {
     return out.copy(o.pos).sub(this.rebase);
   }
 
   /**
    * Move the floating origin onto the selected orbiter while the camera is near one far
-   * from its world, and back to the world's centre otherwise. Everything positioned in
+   * from its world, and back to the world's center otherwise. Everything positioned in
    * scene coordinates (camera, target, flight) shifts with it, so nothing visibly moves.
    */
   private updateRebase(orbiterId: number | null) {
@@ -1280,7 +1280,7 @@ export class SceneController {
     this.rebase.copy(want);
   }
 
-  /** Distance from the camera to the nearest world's centre, km. */
+  /** Distance from the camera to the nearest world's center, km. */
   private nearestDistance(): number {
     const c = this.camera.position;
     let best = Infinity;
@@ -1293,8 +1293,8 @@ export class SceneController {
   }
 
   /**
-   * The spacecraft leaving the solar system, for the Catalogue: distance from the Earth
-   * and the Sun now (km). Loads the Sun-centred snapshot on first use; [] until it arrives.
+   * The spacecraft leaving the solar system, for the Catalog: distance from the Earth
+   * and the Sun now (km). Loads the Sun-centered snapshot on first use; [] until it arrives.
    */
   deepSpace(): { id: number; name: string; norad: number; earthKm: number; sunKm: number }[] {
     this.sys.loadTracks('oort');
@@ -1325,7 +1325,7 @@ export class SceneController {
     return lightTimeS(body, timeMs / 86400000 + 2440587.5);
   }
 
-  /** Closest the camera may come to the world in focus (from its centre). */
+  /** Closest the camera may come to the world in focus (from its center). */
   private minDistance(body: BodyId = this.focus): number {
     return BODIES[body].radiusKm + BODIES[body].minAltitudeKm;
   }
@@ -1403,7 +1403,7 @@ export class SceneController {
     const A = this.sys.at(tr.from), B = this.sys.at(tr.to);
     const { pos, look } = travelPose(tr.plan, u, [B[0] - A[0], B[1] - A[1], B[2] - A[2]]);
     if (u >= 1) {
-      // arrived: centre the scene on the new world and hand the camera back
+      // arrived: center the scene on the new world and hand the camera back
       this.travel = null;
       this.focus = tr.to;
       this.anchor = [B[0], B[1], B[2]];
@@ -1427,7 +1427,7 @@ export class SceneController {
     this.camera.lookAt(look[0], look[1], look[2]);
   }
 
-  /** "Rotate with the world" away from the Earth: carry the camera round with the ground. */
+  /** "Rotate with the world" away from the Earth: carry the camera around with the ground. */
   private turnWithWorld(on: boolean) {
     const m = this.sys.orientation(this.focus);
     if (on && this.lastOrient) {
@@ -1507,8 +1507,8 @@ export class SceneController {
         // a name over a body that fills the view (a moon close up, a spacecraft's model) only gets in the way
         const discPx = st.o.radii ? (Math.max(...st.o.radii) / Math.max(1e-6, p.distanceTo(cam)) / Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) * (this.viewH / 2) : 0;
         // and names that would pile onto their world (the Voyagers seen from the Oort cloud) wait until they stand apart
-        const centre = this.screenOf(origin);
-        const apart = st.o.id === sel || Math.hypot(sc.x - centre.x, sc.y - centre.y) > 14;
+        const center = this.screenOf(origin);
+        const apart = st.o.id === sel || Math.hypot(sc.x - center.x, sc.y - center.y) > 14;
         const visible = st.valid && sc.ok && apart && !this.occluded(p) && !(st.o.id === sel && this.orbiterModel > 0.5) && discPx < 24;
         el.style.opacity = visible ? (st.o.id === sel ? '1' : '0.78') : '0';
         if (visible) el.style.transform = `translate(${sc.x.toFixed(1)}px, ${sc.y.toFixed(1)}px)`;
@@ -1654,7 +1654,7 @@ export class SceneController {
     this.sys.sunFrom(this.focus, sunW);
     // around a planet the camera stays above the craft, with the world below; out past the planets
     // "above" points away from the Sun, so look from the sunward side, at the lit face of the dish.
-    // The side is chosen once: from the Oort cloud's centre (the Sun) the Sun lies straight down the
+    // The side is chosen once: from the Oort cloud's center (the Sun) the Sun lies straight down the
     // craft's zenith, so its along-track and cross-track parts are rounding noise whose signs, read
     // every frame, flung the camera from one side of the craft to the other.
     const q0 = orbitFrame(st.pos, st.vel, new THREE.Quaternion());
@@ -1782,7 +1782,7 @@ export class SceneController {
           downlinkKm: r.route.downlinkKm,
           hops: r.route.path.length,
           latencyMs: vacuumLatencyMs(r.route.totalKm),
-          fibreMs: fibreLatencyMs(gc),
+          fiberMs: fiberLatencyMs(gc),
           greatCircleKm: gc,
         }
       : null;

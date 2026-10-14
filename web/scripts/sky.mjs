@@ -5,7 +5,7 @@
 //     -> milkyway.jpg / milkyway.ktx2 (4096x2048, standard displays)
 //     -> milkyway-uhd-{c}-{r}.ktx2 (4x4 grid of 4096x2048 tiles, in the map's own
 //        layout: c from RA 12h leftmost, r from the south celestial pole)
-//   Hipparcos main catalogue (ESA 1997, CDS I/239), 118k stars to V ≈ 12
+//   Hipparcos main catalog (ESA 1997, CDS I/239), 118k stars to V ≈ 12
 //     -> data/stars.bin
 // The diffuse Milky Way is a texture; the stars the survey removed are drawn as
 // points with a real point-spread function, so they stay sharp at any zoom.
@@ -128,7 +128,7 @@ sharp.cache(false);
   }
   stars.sort((a, b) => a.v - b.v); // brightest first
 
-  // SoA, quantised: u16 RA (≈ 20″), i16 Dec (≈ 10″), u8 V in 1/18 mag from −2, i8 B−V in 0.02 mag
+  // SoA, quantized: u16 RA (≈ 20″), i16 Dec (≈ 10″), u8 V in 1/18 mag from −2, i8 B−V in 0.02 mag
   const n = stars.length;
   const buf = Buffer.alloc(8 + 6 * n);
   buf.write('STR2', 0, 'latin1');

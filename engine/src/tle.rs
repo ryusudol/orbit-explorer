@@ -32,17 +32,17 @@ fn implied_decimal(mantissa_sign_and_digits: &str, exponent: &str) -> Result<f64
     Ok(sign * mantissa * 10f64.powi(exp))
 }
 
-/// Alpha-5 catalogue numbers: A0000 = 100000 (letters I and O are skipped).
+/// Alpha-5 catalog numbers: A0000 = 100000 (letters I and O are skipped).
 fn satnum(s: &str) -> Result<u32, String> {
     let s = s.trim();
-    let first = s.chars().next().ok_or("empty catalogue number")?;
+    let first = s.chars().next().ok_or("empty catalog number")?;
     if first.is_ascii_alphabetic() {
         let letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
         let idx = letters.find(first.to_ascii_uppercase()).ok_or("bad alpha-5 letter")? as u32;
         let rest: u32 = s[1..].parse().map_err(|_| "bad alpha-5 digits")?;
         Ok((idx + 10) * 10000 + rest)
     } else {
-        s.parse().map_err(|_| format!("bad catalogue number {s:?}"))
+        s.parse().map_err(|_| format!("bad catalog number {s:?}"))
     }
 }
 
@@ -55,7 +55,7 @@ pub fn parse_tle(line1: &str, line2: &str) -> Result<Elements, String> {
     let id1 = satnum(field(l1, 2, 7)?)?;
     let id2 = satnum(field(l2, 2, 7)?)?;
     if id1 != id2 {
-        return Err(format!("catalogue numbers differ: {id1} vs {id2}"));
+        return Err(format!("catalog numbers differ: {id1} vs {id2}"));
     }
     let two_digit_year: u32 = field(l1, 18, 20)?.trim().parse().map_err(|_| "bad epoch year")?;
     let epoch_days = float(field(l1, 20, 32)?)?;

@@ -1,5 +1,5 @@
 // A small stroke icon set (24 px grid, 1.75 px strokes) so the UI needs no icon
-// dependency. Paths are drawn in currentColor and inherit the text colour.
+// dependency. Paths are drawn in currentColor and inherit the text color.
 
 const PATHS = {
   play: <path d="M7 4.8v14.4a.8.8 0 0 0 1.2.7l11.5-7.2a.8.8 0 0 0 0-1.4L8.2 4.1A.8.8 0 0 0 7 4.8Z" fill="currentColor" stroke="none" />,

@@ -127,7 +127,7 @@ pub fn elevation(site: V3, up: V3, target: V3) -> f64 {
     (dot(rho, up) / norm(rho)).asin()
 }
 
-/// True when the straight segment a-b stays above `radius` km from Earth's centre.
+/// True when the straight segment a-b stays above `radius` km from Earth's center.
 pub fn line_of_sight(a: V3, b: V3, radius: f64) -> bool {
     let d = sub(b, a);
     let dd = dot(d, d);

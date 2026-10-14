@@ -4,7 +4,7 @@ import { int } from './format';
 import { GROUP_LAYER, GROUP_SHORT, LEGEND_ORDER } from './groups';
 import { WorldLegend } from './Worlds';
 
-/** The colour key is also the filter: each chip shows or hides its group. */
+/** The color key is also the filter: each chip shows or hides its group. */
 export function Legend() {
   const layers = useStore((s) => s.layers);
   const setLayer = useStore((s) => s.setLayer);

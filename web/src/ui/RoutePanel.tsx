@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { D3Chart } from '../panels/D3Chart';
 import { drawLatency } from '../panels/charts';
 import { CITIES, cityById, placeName } from '../sim/cities';
-import { fibreLatencyMs, greatCircleKm } from '../sim/physics';
+import { fiberLatencyMs, greatCircleKm } from '../sim/physics';
 import { useStore } from '../state/store';
 import { Explain, Section, Stat } from './common';
 import { fixed, int, ms } from './format';
@@ -17,10 +17,10 @@ export function RoutePanel() {
   const set = useStore((s) => s.set);
   const a = cityById(src), b = cityById(dst);
   const gc = greatCircleKm(a.lat, a.lon, b.lat, b.lon);
-  const fibre = fibreLatencyMs(gc);
-  const data = useMemo(() => ({ samples: latency, fibreMs: fibre }), [latency, fibre]);
-  const saving = route ? fibre - route.latencyMs : 0;
-  const scale = Math.max(fibre, route?.latencyMs ?? 0) * 1.04;
+  const fiber = fiberLatencyMs(gc);
+  const data = useMemo(() => ({ samples: latency, fiberMs: fiber }), [latency, fiber]);
+  const saving = route ? fiber - route.latencyMs : 0;
+  const scale = Math.max(fiber, route?.latencyMs ?? 0) * 1.04;
 
   return (
     <>
@@ -61,12 +61,12 @@ export function RoutePanel() {
               <span className="hero-v">{fixed(route.latencyMs, 1)}</span>
               <span className="hero-u">ms</span>
               <span className={`delta${saving < 0 ? ' bad' : ''}`}>
-                {fixed(Math.abs(saving), 1)} ms {saving >= 0 ? 'faster' : 'slower'} than fibre
+                {fixed(Math.abs(saving), 1)} ms {saving >= 0 ? 'faster' : 'slower'} than fiber
               </span>
             </div>
             <div className="compare">
               <CompareBar label="Laser mesh" value={route.latencyMs} scale={scale} />
-              <CompareBar label="Ideal fibre" value={fibre} scale={scale} reference />
+              <CompareBar label="Ideal fiber" value={fiber} scale={scale} reference />
             </div>
             <div className="metrics">
               <Stat k="Path length" v={int(route.totalKm)} unit="km" />
@@ -92,19 +92,19 @@ export function RoutePanel() {
             </span>
             <span>
               <i className="key-line reference" />
-              Fibre
+              Fiber
             </span>
           </span>
         }
       >
         {latency.length > 1 ? (
-          <D3Chart draw={drawLatency} data={data} height={150} label="Latency over time: laser path versus ideal fibre" />
+          <D3Chart draw={drawLatency} data={data} height={150} label="Latency over time: laser path versus ideal fiber" />
         ) : (
           <div className="chart-empty">Collecting samples…</div>
         )}
         <Explain>
           Latency is path length over the speed of light, rebuilt 4× a second from SGP4 states: uplink at ≥25° elevation, laser hops through
-          the mesh, downlink. Fibre is shown at its physical best, a straight great-circle cable ({int(gc)} km) at c / 1.468; real routes run
+          the mesh, downlink. Fiber is shown at its physical best, a straight great-circle cable ({int(gc)} km) at c / 1.468; real routes run
           10–30% longer. Past ~3,000 km, light in vacuum wins despite the ~1,000 km detour up and down.
         </Explain>
       </Section>

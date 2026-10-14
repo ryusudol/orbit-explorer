@@ -122,7 +122,7 @@ await tiers('earth-day', day, 210);
     const x0 = (k % 4) * tw, y0 = Math.floor(k / 4) * th;
     for (let y = 0; y < th; y++) tile.copy(night, ((y0 + y) * W + x0) * 3, y * tw * 3, (y + 1) * tw * 3);
   }
-  // the tiles are grey stored as RGB: grade one channel, write it to all three
+  // the tiles are gray stored as RGB: grade one channel, write it to all three
   const graded = Buffer.alloc(W * H * 3);
   for (let i = 0; i < W * H; i++) graded[3 * i] = graded[3 * i + 1] = graded[3 * i + 2] = Math.max(0, Math.min(255, Math.round(night[3 * i] * 1.25 - 8)));
   await tiers('earth-night', graded, 190);

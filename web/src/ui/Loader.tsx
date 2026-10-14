@@ -1,7 +1,7 @@
 import { useStore } from '../state/store';
 import { Icon, Logo } from './icons';
 
-const STEPS = ['Loading catalogue', 'Loading physics engine', 'Starting renderer', 'Loading Earth imagery', 'Starting SGP4 workers'];
+const STEPS = ['Loading catalog', 'Loading physics engine', 'Starting renderer', 'Loading Earth imagery', 'Starting SGP4 workers'];
 
 export function Loader() {
   const phase = useStore((s) => s.phase);

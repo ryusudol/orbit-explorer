@@ -3,7 +3,7 @@ import { geocentric, jupiterSystemIII, planetOrientation, VSOP_PLANETS, type Pla
 import { C_KMS, latLon, mul, precession, transpose, type Vec3 } from './solar';
 
 // JPL Horizons: geometric geocentric vectors (ICRF, km) and the apparent sub-Earth
-// point (ObsSub-LON/LAT, planetographic) seen from the geocentre, fetched 2026-10-10.
+// point (ObsSub-LON/LAT, planetographic) seen from the geocenter, fetched 2026-10-10.
 const HORIZONS = [
   { utc: '2025-03-01T12:00:00Z', mercury: { pos: [164559867.8, -8945047.8, -2820342.8], sub: { lon: 61.531153, lat: -5.842801 } }, venus: { pos: [49634258.3, 6031163.6, 9167280.4], sub: { lon: 322.950292, lat: -7.957597 } }, jupiter: { pos: [230897843.5, 652671755.3, 277322188.9], sub: { lon: 103.226245, lat: 2.980857 } }, saturn: { pos: [1560836198.8, -221063178.1, -153402003.2], sub: { lon: 315.083206, lat: 1.564121 } }, uranus: { pos: [1771824895.4, 2185745503.3, 934396633.9], sub: { lon: 252.599571, lat: 65.615092 } }, neptune: { pos: [4610237274.1, -65525426.2, -139186414.9], sub: { lon: 212.604199, lat: -21.054902 } } },
   { utc: '2026-10-09T00:00:00Z', mercury: { pos: [-121054957, -90783338.1, -47231126], sub: { lon: 198.234652, lat: 3.582561 } }, venus: { pos: [-36304299.9, -23126264.4, -16628235.3], sub: { lon: 318.84742, lat: 8.771127 } }, jupiter: { pos: [-673172965.2, 503480998.6, 228508188.7], sub: { lon: 119.750822, lat: 0.044505 } }, saturn: { pos: [1239383830, 235967489.9, 37141341.6], sub: { lon: 277.477067, lat: -8.933823 } }, uranus: { pos: [1187664773.8, 2338690927.3, 1005593683.4], sub: { lon: 80.354187, lat: 75.926437 } }, neptune: { pos: [4319301558.8, 199227975.5, -30449108.2], sub: { lon: 73.474496, lat: -19.635237 } } },

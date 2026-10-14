@@ -4,7 +4,7 @@
 //
 // Neither has city lights or oceans. What sells them is the terminator, where
 // low sunlight rakes across craters and canyons, so each patch carries a
-// slope map (scripts/planets.mjs) next to its colour map. Reflectance is
+// slope map (scripts/planets.mjs) next to its color map. Reflectance is
 // Minnaert's law, I ∝ μ₀^k μ^(k−1): k = 0.5 for the Moon, whose dusty regolith
 // makes the full Moon a flat disc with no darkening at the limb, and k ≈ 0.8
 // for Mars, closer to a matte (Lambert) surface.
@@ -142,7 +142,7 @@ export class Planet {
   /** camera position in the body-fixed frame (for view-dependent shading) */
   readonly cameraLocal = uniform(new THREE.Vector3(0, 0, 1e5));
 
-  /** Full-globe colour (2k/4k tiers), on every patch without a tile of its own. */
+  /** Full-globe color (2k/4k tiers), on every patch without a tile of its own. */
   setColor(map: THREE.Texture) {
     for (const p of this.patches) {
       if (this.tiled.has(p)) continue;
@@ -157,7 +157,7 @@ export class Planet {
   }
 
   /**
-   * One UHD tile pair for patch (c, r). Colour and relief tiles share the patch's
+   * One UHD tile pair for patch (c, r). Color and relief tiles share the patch's
    * layout, so a patch switches to tile UVs only once it has both.
    */
   setTile(c: number, r: number, color: THREE.Texture, relief: THREE.Texture) {
@@ -170,7 +170,7 @@ export class Planet {
   }
 
   /** Unit vector (body-fixed) to the middle of patch (c, r). */
-  static tileCentre(c: number, r: number): THREE.Vector3 {
+  static tileCenter(c: number, r: number): THREE.Vector3 {
     const lon = (-180 + (c + 0.5) * (360 / GRID.cols)) * DEG, lat = (-90 + (r + 0.5) * (180 / GRID.rows)) * DEG;
     return new THREE.Vector3(Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat));
   }

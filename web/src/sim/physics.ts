@@ -1,9 +1,9 @@
 // Physical constants and the latency model.
 
 export const C_KM_S = 299_792.458;
-/** Group index of standard single-mode fibre (SMF-28 at 1550 nm). */
-export const FIBRE_INDEX = 1.4682;
-export const C_FIBRE_KM_S = C_KM_S / FIBRE_INDEX;
+/** Group index of standard single-mode fiber (SMF-28 at 1550 nm). */
+export const FIBER_INDEX = 1.4682;
+export const C_FIBER_KM_S = C_KM_S / FIBER_INDEX;
 /** IUGG mean Earth radius, km. */
 export const R_MEAN_KM = 6371.0088;
 export const R_EQ_KM = 6378.137;
@@ -19,11 +19,11 @@ export function greatCircleKm(lat1: number, lon1: number, lat2: number, lon2: nu
 }
 
 /**
- * One-way latency (ms) of an ideal fibre laid along the great circle - the best
- * case for fibre. Real cable routes are 10-30% longer and add repeaters and switching.
+ * One-way latency (ms) of an ideal fiber laid along the great circle - the best
+ * case for fiber. Real cable routes are 10-30% longer and add repeaters and switching.
  */
-export function fibreLatencyMs(distanceKm: number): number {
-  return (distanceKm / C_FIBRE_KM_S) * 1000;
+export function fiberLatencyMs(distanceKm: number): number {
+  return (distanceKm / C_FIBER_KM_S) * 1000;
 }
 
 /** One-way latency (ms) of a free-space path (laser links and radio up/downlinks). */

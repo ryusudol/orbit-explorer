@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { C_KMS, latLon, marsGeocentric, marsOrientation, moonGeocentric, moonOrientation, mul, precession, sunGeocentric, transpose, type Vec3 } from './solar';
 
 // JPL Horizons: geometric geocentric vectors (ICRF, km) and the apparent sub-Earth
-// point (ObsSub-LON/LAT) seen from the geocentre, fetched 2026-10-09.
+// point (ObsSub-LON/LAT) seen from the geocenter, fetched 2026-10-09.
 const HORIZONS = [
   {
     utc: '2025-03-01T12:00:00Z',

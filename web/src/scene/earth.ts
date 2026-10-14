@@ -101,7 +101,7 @@ export class Earth {
     const dayRgb = half.day.rgb;
     const lambert = max(ndl, 0).mul(0.8).add(0.2);
     const dayColor = dayRgb.mul(lambert).mul(0.72);
-    // city lights: sodium-vapour amber, gamma-lifted so dim suburbs still read
+    // city lights: sodium-vapor amber, gamma-lifted so dim suburbs still read
     const lights = pow(half.night.r, float(1.5)).mul(vec3(1.0, 0.62, 0.3)).mul(1.5);
     const nightColor = lights.add(dayRgb.mul(0.03));
     const viewDir = normalize(cameraPosition.sub(positionWorld));
@@ -147,7 +147,7 @@ export class Earth {
   }
 
   /** Unit vector (Earth-fixed) to the middle of patch (c, r), for loading what faces the camera first. */
-  static tileCentre(c: number, r: number): THREE.Vector3 {
+  static tileCenter(c: number, r: number): THREE.Vector3 {
     const lon = (-180 + (c + 0.5) * (360 / GRID.cols)) * DEG, lat = (-90 + (r + 0.5) * (180 / GRID.rows)) * DEG;
     return new THREE.Vector3(Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat));
   }

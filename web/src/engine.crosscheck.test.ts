@@ -1,5 +1,5 @@
 // Independent check of the WASM SGP4 against satellite.js (a separate port of
-// the same reference) on real catalogue objects: LEO, MEO, GEO and HEO, with
+// the same reference) on real catalog objects: LEO, MEO, GEO and HEO, with
 // times from 1 day before to 3 days after epoch.
 //
 // Set WRITE_VALIDATION=1 to also write docs/validation/satellitejs-diff.csv.
@@ -14,7 +14,7 @@ import { loadEngineSync, loadSnapshot } from './test/node';
 describe('SGP4 vs satellite.js', () => {
   beforeAll(loadEngineSync);
 
-  it('agrees to well under a metre across the catalogue', () => {
+  it('agrees to well under a meter across the catalog', () => {
     const c = loadSnapshot();
     const step = Math.max(1, Math.floor(c.count / 2500));
     const offsetsMin = [-1440, -60, 0, 90, 720, 1440, 4320];

@@ -134,7 +134,7 @@ export class Heliosphere {
   private pathPts: Float64Array[] = [];
   private cloudAu: Float32Array;
   private cloudCount: number;
-  /** per point: base colour (rgb), size, gain and distance from the Sun (au) */
+  /** per point: base color (rgb), size, gain and distance from the Sun (au) */
   private cloudLook: Float32Array;
   private cloudDimAt = NaN;
   private tno: Tno | null = null;
@@ -190,7 +190,7 @@ export class Heliosphere {
       { key: 'heliopause', text: 'Heliopause', at: [nose[0] * 125 * AU_KM, nose[1] * 125 * AU_KM, nose[2] * 125 * AU_KM], near: 40 * AU_KM, far: 4_000 * AU_KM, kind: 'region' },
       { key: 'kuiper', text: 'Kuiper belt', at: mul(ECL, [0, 44 * AU_KM, 0]), near: 15 * AU_KM, far: 1_500 * AU_KM, kind: 'region' },
       { key: 'oort-inner', text: 'Inner Oort cloud', at: mul(ECL, [9_000 * AU_KM, 0, 0]), near: 2_500 * AU_KM, far: 300_000 * AU_KM, kind: 'region' },
-      { key: 'oort-outer', text: 'Outer Oort cloud (modelled)', at: mul(ECL, [0, 0, 60_000 * AU_KM]), near: 15_000 * AU_KM, far: 600_000 * AU_KM, kind: 'region' },
+      { key: 'oort-outer', text: 'Outer Oort cloud (modeled)', at: mul(ECL, [0, 0, 60_000 * AU_KM]), near: 15_000 * AU_KM, far: 600_000 * AU_KM, kind: 'region' },
     );
     this.objects = [this.orbits.object, this.rings.object, this.paths.object, this.belt.object, this.cloud.object, this.shells];
   }
@@ -269,7 +269,7 @@ export class Heliosphere {
     this.orbitsJd = NaN; // dwarf-planet orbits join the planets'
   }
 
-  /** The Voyagers' paths since launch (Sun-centred ICRF, from the ephemeris snapshot). */
+  /** The Voyagers' paths since launch (Sun-centered ICRF, from the ephemeris snapshot). */
   setPaths(objects: EphObject[]) {
     this.pathPts = objects.filter((o) => o.path).map((o) => Float64Array.from(o.path!.data));
   }

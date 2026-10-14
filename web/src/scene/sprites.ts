@@ -23,7 +23,7 @@ export class SpriteLayer {
   /** rgb (linear, may exceed 1 for bloom) + size in px */
   readonly colors: THREE.InstancedBufferAttribute;
   readonly capacity: number;
-  /** multiplies every instance's colour: fades a whole layer without rewriting it */
+  /** multiplies every instance's color: fades a whole layer without rewriting it */
   readonly gain = uniform(1);
 
   constructor(capacity: number, shape: SpriteShape, opts: { additive?: boolean; depthTest?: boolean; renderOrder?: number; bloom?: number } = {}) {
@@ -47,10 +47,10 @@ export class SpriteLayer {
     mat.colorNode = col.xyz.mul(this.gain);
     // how much the bloom pass spreads this layer's light (default: fully, like the stars)
     if (opts.bloom !== undefined) mat.mrtNode = mrt({ bloom: float(opts.bloom) });
-    const d = uv().sub(0.5).length().mul(2); // 0 at centre, 1 at the quad edge
+    const d = uv().sub(0.5).length().mul(2); // 0 at center, 1 at the quad edge
     if (shape === 'star') {
       // Gaussian point-spread function with the quad at ±3σ: the size sets σ,
-      // the colour gain sets the peak, so stars stay pin-sharp at any DPR
+      // the color gain sets the peak, so stars stay pin-sharp at any DPR
       mat.opacityNode = exp(d.mul(d).mul(-4.5));
     } else if (shape === 'glow') {
       const core = smoothstep(1.0, 0.0, d);

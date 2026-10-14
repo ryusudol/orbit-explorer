@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Builds the Moon's and Mars' globe textures from public-domain NASA/USGS maps.
-//   Moon  colour  LROC WAC colour mosaic, poles filled (NASA SVS CGI Moon Kit, 16384x8192)
+//   Moon  color  LROC WAC color mosaic, poles filled (NASA SVS CGI Moon Kit, 16384x8192)
 //         relief  LOLA elevation, 64 px/deg (CGI Moon Kit ldem_64, km above 1737.4 km)
-//   Mars  colour  Viking Orbiter colour mosaic, 925 m/px (USGS Astrogeology)
+//   Mars  color  Viking Orbiter color mosaic, 925 m/px (USGS Astrogeology)
 //         relief  MOLA MEGDR elevation, 32 px/deg (PDS, m above the areoid, 0–360°E)
-// All are planetocentric plate carrée, written centred on 0° longitude, rows bottom-up:
+// All are planetocentric plate carrée, written centered on 0° longitude, rows bottom-up:
 //   {body}-color-2k.jpg, {body}-color.jpg / .ktx2 (4096x2048), {body}-color-uhd-{c}-{r}.ktx2
 //     the same tiers and 4x4 tile grid as the Earth (scripts/textures.mjs)
 //   {body}-relief.ktx2 (2048x1024), {body}-relief-uhd-{c}-{r}.ktx2 (8192x4096 as 4x4 tiles)
@@ -64,8 +64,8 @@ async function eachTile(buf, width, height, channels, fn) {
   }
 }
 
-/** Every colour tier from a full-resolution (16384x8192) RGB buffer. */
-async function colourTiers(name, rgb, quality) {
+/** Every color tier from a full-resolution (16384x8192) RGB buffer. */
+async function colorTiers(name, rgb, quality) {
   const { width: W, height: H } = UHD;
   const img = () => sharp(rgb, { raw: { width: W, height: H, channels: 3 } });
   for (const [w, suffix] of [
@@ -116,7 +116,7 @@ if (!only || only === 'moon') {
     .modulate({ saturation: 0.9 })
     .raw()
     .toBuffer();
-  await colourTiers('moon-color', color, 210);
+  await colorTiers('moon-color', color, 210);
   await reliefTiers('moon-relief', await floatGrid(await cached(SOURCES.moonDem)), 1737.4);
 }
 
@@ -129,9 +129,9 @@ if (!only || only === 'mars') {
     .modulate({ saturation: 0.92 })
     .raw()
     .toBuffer();
-  await colourTiers('mars-color', color, 210);
+  await colorTiers('mars-color', color, 210);
 
-  // MEGDR: big-endian int16 metres, 0°E at the left edge; roll by half a turn to start at 180°W
+  // MEGDR: big-endian int16 meters, 0°E at the left edge; roll by half a turn to start at 180°W
   const raw = await readFile(await cached(SOURCES.marsDem));
   const w = 11520, hgt = 5760;
   const km = new Float32Array(w * hgt);

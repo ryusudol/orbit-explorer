@@ -49,7 +49,7 @@ async function screen(req: PartScreenRequest) {
       scope.postMessage(msg, [flat.buffer]);
     }
     await yieldToEvents();
-    if (current !== req.id) return; // superseded or cancelled
+    if (current !== req.id) return; // superseded or canceled
   }
 }
 

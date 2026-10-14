@@ -42,7 +42,7 @@ describe('travel between worlds', () => {
     });
   }
 
-  // out to the Oort cloud (the Sun at its centre, the camera 60,000 au out) and back in
+  // out to the Oort cloud (the Sun at its center, the camera 60,000 au out) and back in
   const AU = 1.495978707e8;
   const zooms: [string, V3, number, number, number, number, V3][] = [
     // name, B from A, start distance, end distance, A's radius, B's radius, arrival direction

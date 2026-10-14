@@ -13,7 +13,7 @@
 //!   next slab of columns; in each, the cells at z-1..=z+1 are again one range,
 //!   found by a sweep up the column.
 //!
-//! That covers the cell itself and 13 of its 26 neighbours, one of each opposite
+//! That covers the cell itself and 13 of its 26 neighbors, one of each opposite
 //! pair, so every adjacent pair of cells, and every pair of points, is visited
 //! exactly once.
 
@@ -21,7 +21,7 @@ use crate::frames::{v3, V3};
 
 /// Cells are numbered from the lowest occupied one, up to this per axis. A cell
 /// farther out is clamped onto the edge: that can merge cells, never separate
-/// neighbours, so queries stay exact (if slower) even for absurd spreads.
+/// neighbors, so queries stay exact (if slower) even for absurd spreads.
 const AXIS_MAX: i64 = (1 << 21) - 1;
 
 /// One occupied cell: its height in the column, and `[start, end)` into the
@@ -106,7 +106,7 @@ fn radix_sort(keys: &mut Vec<u64>, ids: &mut Vec<u32>, bits: u32, tmp_keys: &mut
 /// Points [a0, a1) against [b0, b1), or among themselves and the points just
 /// after them when `b0 == a0` (the ranges then overlap). About a quarter of the
 /// points checked are hits, so a branch per point would mispredict constantly:
-/// hits are gathered into `hits` without branching and reported afterwards.
+/// hits are gathered into `hits` without branching and reported afterward.
 #[inline(always)]
 fn scan(spos: &[V3], r2: f64, a0: usize, a1: usize, b0: usize, b1: usize, hits: &mut Vec<(u32, f64)>, f: &mut impl FnMut(u32, u32, f64)) {
     let same = a0 == b0;
@@ -248,7 +248,7 @@ impl SpatialGrid {
         debug_assert!(radius <= self.cell * (1.0 + 1e-12));
         let r2 = radius * radius;
         let (runs, cols, spos) = (&self.runs, &self.cols, &self.spos);
-        // each cell of column `a` against the cells at z-1..=z+1 in column `b`, swept upwards
+        // each cell of column `a` against the cells at z-1..=z+1 in column `b`, swept upward
         let mut hits = Vec::new();
         let columns = |a: Column, b: Column, hits: &mut Vec<(u32, f64)>, f: &mut _| {
             let (mut w, end) = (b.lo as usize, b.hi as usize);
@@ -389,7 +389,7 @@ mod tests {
             assert_eq!(a, b, "radius {radius}");
             assert!(!b.is_empty());
 
-            // neighbourhood queries reaching past the adjacent cells
+            // neighborhood queries reaching past the adjacent cells
             for k in (0..n).step_by(97) {
                 let p = v3(&pos, k);
                 let mut near = Vec::new();
@@ -403,7 +403,7 @@ mod tests {
     }
 
     /// Cells more than 2^21 from the lowest one are clamped onto the edge. That may
-    /// merge cells, but must never separate neighbours: clusters millions of cells
+    /// merge cells, but must never separate neighbors: clusters millions of cells
     /// apart still give exactly the brute-force pairs.
     #[test]
     fn clamped_far_cells_stay_exact() {

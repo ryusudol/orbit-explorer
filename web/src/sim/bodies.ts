@@ -45,7 +45,7 @@ export interface Body {
   mu: number;
   /** closest the camera may come to the surface, km */
   minAltitudeKm: number;
-  /** farthest the camera may pull back, km from the centre */
+  /** farthest the camera may pull back, km from the center */
   maxDistanceKm: number;
   /** radius the opening view frames: the body plus its busiest orbits, km */
   frameKm: number;
@@ -107,7 +107,7 @@ export const BODIES: Record<BodyId, Body> = {
     maxDistanceKm: 400_000,
     frameKm: 6052 * 1.5,
     hex: '#e8d7a8',
-    turns: 'backwards, once every 243 Earth days; the cloud tops race round in four',
+    turns: 'backward, once every 243 Earth days; the cloud tops race around in four',
     orbiters: [],
     sites: [],
     empty:
@@ -287,7 +287,7 @@ export const BODIES: Record<BodyId, Body> = {
     hex: '#5b7fe0',
     turns: 'once every 16 h 7 min',
     orbiters: [
-      moon(801, 'Triton', 'Moon · found 1846 (Lassell)', 'Orbits backwards, so it was probably captured from the Kuiper belt. Voyager 2 saw nitrogen geysers in 1989; tides are slowly drawing it in.', 1352.6),
+      moon(801, 'Triton', 'Moon · found 1846 (Lassell)', 'Orbits backward, so it was probably captured from the Kuiper belt. Voyager 2 saw nitrogen geysers in 1989; tides are slowly drawing it in.', 1352.6),
       moon(808, 'Proteus', 'Moon · found 1989 (Voyager 2)', 'Dark and boxy, about as big as a body can be before its own gravity pulls it round.', [218, 208, 201]),
       moon(802, 'Nereid', 'Moon · found 1949 (Kuiper)', 'The most eccentric orbit of any moon: it swings between 1.4 and 9.7 million km from Neptune.', 178),
     ],

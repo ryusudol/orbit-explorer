@@ -24,7 +24,7 @@ export const SKY_KM = 2.8e6;
 /**
  * Take the far plane out of clipping. Depth comes from the logarithmic depth buffer
  * (the fragment's own distance), so clip-space z only decides what is clipped. With the
- * near plane at metres beside a spacecraft model, far/near reaches 2·10⁹ and the depth
+ * near plane at meters beside a spacecraft model, far/near reaches 2·10⁹ and the depth
  * row's −far/(far−near) rounds to exactly −1 in float32: everything beyond ~10⁷ near
  * distances, the sky included, lands on z/w = 1, and GPU rounding drops some triangles
  * and keeps others from frame to frame (patches of the Milky Way blinking out). Here

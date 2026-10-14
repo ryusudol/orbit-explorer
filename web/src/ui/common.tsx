@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icon } from './icons';
 
-/** A labelled figure. `unit` is set smaller beside the value. */
+/** A labeled figure. `unit` is set smaller beside the value. */
 export function Stat({ k, v, unit, tone }: { k: string; v: string; unit?: string; tone?: 'good' | 'bad' }) {
   return (
     <div className="stat">

@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-// Conjunction screening over the whole catalogue. The window's time samples
+// Conjunction screening over the whole catalog. The window's time samples
 // are independent, so the screen is split across several part workers
 // (conjunction-part.worker.ts), each screening a contiguous share of them.
 // This worker merges their events by pair, keeping the smallest miss, which
@@ -27,7 +27,7 @@ export interface ConjunctionEvent {
 
 const scope = self as DedicatedWorkerGlobalScope;
 
-/** Each part holds its own copy of the catalogue (~30 MB of SGP4 state at 32k objects). */
+/** Each part holds its own copy of the catalog (~30 MB of SGP4 state at 32k objects). */
 const PARTS = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 2));
 
 let parts: Worker[] = [];

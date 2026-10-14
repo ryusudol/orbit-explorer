@@ -1,4 +1,4 @@
-//! Conjunction screening over the whole catalogue.
+//! Conjunction screening over the whole catalog.
 //!
 //! Every `step` seconds all objects are propagated and sorted into a spatial
 //! grid. Two objects that pass within `threshold` of each other at time of
@@ -313,7 +313,7 @@ fn sample_pair(pi: V3, pj: V3, vi: V3, vj: V3, half: f64, threshold: f64) -> Sam
     // ill-conditioned and could otherwise fall outside every window.
     let inside = rr < threshold * threshold;
     // The closest approach must belong to this sample (|tau| <= half, with a 1 s
-    // overlap for linearisation error at window edges; duplicates merge by pair),
+    // overlap for linearization error at window edges; duplicates merge by pair),
     // and the linear miss, |dr + dv tau|^2 = rr - rv^2 / vv, must be under the
     // margin. Both are multiplied through by vv > 0.
     let edge = (half + 1.0) * vv;

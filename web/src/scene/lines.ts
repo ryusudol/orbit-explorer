@@ -95,7 +95,7 @@ export class ThickPath {
 
 /**
  * Time of orbit sample `k` of `n`, as a fraction of the span: -0.5 to 0.5, now at
- * the centre (n odd). The spacing grows linearly away from now, so a chord sags by
+ * the center (n odd). The spacing grows linearly away from now, so a chord sags by
  * a fixed share (~5e-5 rad in LEO at 361 samples) of its distance from the object:
  * as smooth from a camera beside the object as from afar. Even 1° steps sag
  * ~250 m, which right beside the track shows as kinks.
@@ -148,7 +148,7 @@ export class OrbitPath {
 
   /**
    * points: `count` world positions sampled over one period at `orbitPhase`,
-   * centred on now. Segments with a NaN end (decayed or invalid samples) are skipped.
+   * centered on now. Segments with a NaN end (decayed or invalid samples) are skipped.
    * With `camera`, segments are trimmed to its view (see below).
    */
   update(points: Float64Array, count: number, color: THREE.Color, cam: THREE.Vector3, camera?: THREE.PerspectiveCamera) {
@@ -157,7 +157,7 @@ export class OrbitPath {
     const n = Math.min(count - 1, this.capacity);
     // Line2 builds each segment's quad in NDC, which comes apart for an end close to the camera
     // plane and far off screen: a track passing beside the camera (a chase view of a slow craft)
-    // has an end metres in front and hundreds of screen widths aside, and now and then, zooming,
+    // has an end meters in front and hundreds of screen widths aside, and now and then, zooming,
     // that segment fills the screen as a wedge for a frame. Cutting at the near plane alone
     // leaves that end. So segments are trimmed here to the view, widened GUARD times, and to
     // 1.5 near planes in front: clip x, y and w are linear along a segment (Liang–Barsky).

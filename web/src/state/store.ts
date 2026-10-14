@@ -37,7 +37,7 @@ export interface RouteInfo {
   downlinkKm: number;
   hops: number;
   latencyMs: number;
-  fibreMs: number;
+  fiberMs: number;
   greatCircleKm: number;
 }
 
@@ -90,9 +90,9 @@ export interface OrbiterInfo {
   apoapsisKm: number;
   /** false while a spacecraft is still arriving: its elements describe no real orbit */
   orbiting: boolean;
-  /** distance from the centre, km/s (negative closing) */
+  /** distance from the center, km/s (negative closing) */
   radialKms: number;
-  /** closest the track comes to the centre from now on, km, at closestMs; closestAtEnd when still closing at the track's end */
+  /** closest the track comes to the center from now on, km, at closestMs; closestAtEnd when still closing at the track's end */
   closestKm: number;
   closestMs: number;
   closestAtEnd: boolean;
@@ -188,7 +188,7 @@ interface State {
 
   layers: Layers;
   tab: Tab;
-  /** the world in focus: where the camera is, or is travelling to */
+  /** the world in focus: where the camera is, or is traveling to */
   body: BodyId;
   /** set while the camera flies between worlds */
   travel: { from: BodyId; to: BodyId } | null;
@@ -202,7 +202,7 @@ interface State {
   selected: number | null;
   selectedInfo: SelectedInfo | null;
   follow: boolean;
-  /** `color` and `meta` describe an orbiter; otherwise `index` is a catalogue object */
+  /** `color` and `meta` describe an orbiter; otherwise `index` is a catalog object */
   hover: { index: number; name: string; x: number; y: number; color?: string; meta?: string } | null;
 
   src: string;
@@ -228,7 +228,7 @@ interface State {
 export const useStore = create<State>((set) => ({
   phase: 'loading',
   readyMs: 0,
-  loadingStep: 'Loading catalogue',
+  loadingStep: 'Loading catalog',
   error: null,
   meta: null,
   groupCounts: [0, 0, 0],

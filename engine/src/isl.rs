@@ -2,7 +2,7 @@
 //! and shortest-latency routing between two ground stations.
 //!
 //! Topology is the "+Grid" used in the ISL literature (e.g. Handley, HotNets
-//! 2018): every satellite keeps two links to its in-plane neighbours (fore and
+//! 2018): every satellite keeps two links to its in-plane neighbors (fore and
 //! aft) and one to the nearest satellite in the adjacent plane to the east
 //! (so, with the link from the western plane, four in total). Shells and planes
 //! are not taken from any label; they are recovered from the mean elements
@@ -229,7 +229,7 @@ pub fn build(batch: &Batch, cfg: &IslConfig) -> IslGraph {
             }
             let east = &planes[pb];
             for m in &planes[pa] {
-                // nearest argument of latitude via binary search, then check a few neighbours by true distance
+                // nearest argument of latitude via binary search, then check a few neighbors by true distance
                 let k = east.partition_point(|e| e.u < m.u);
                 let mut best: Option<(f64, u32)> = None;
                 for off in -2i64..=2 {
@@ -413,7 +413,7 @@ mod tests {
     }
 
     #[test]
-    fn route_is_shortest_and_beats_great_circle_fibre() {
+    fn route_is_shortest_and_beats_great_circle_fiber() {
         let b = walker(32, 24, 1);
         let g = build(&b, &IslConfig::default());
         let gmst = crate::sgp4::gstime(2460000.5);

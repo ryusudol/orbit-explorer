@@ -20,7 +20,7 @@ const MOBILE = 760;
 const SHORTCUTS: [string, string][] = [
   ['⌘ K  or  /', 'Search objects and actions'],
   ['Space', 'Play or pause time'],
-  ['1 – 5', 'Explore, Routing, Conjunctions, Coverage, Catalogue (elsewhere: Explore, Orbiters, and Link to Earth at the Moon and Mars)'],
+  ['1 – 5', 'Explore, Routing, Conjunctions, Coverage, Catalog (elsewhere: Explore, Orbiters, and Link to Earth at the Moon and Mars)'],
   ['E  or  M  or  .', 'Fly to the Earth, the Moon or Mars'],
   ['[  or  ]', 'Fly to the next world in, or out, as far as the Oort cloud'],
   ['F', 'Follow the selected object'],
@@ -123,7 +123,7 @@ export function Hud() {
   }, [selected, orbiter]);
   useEffect(() => setCollapsed(false), [tab]);
 
-  // tell the renderer which parts of the screen the interface covers, so the globe centres in the rest
+  // tell the renderer which parts of the screen the interface covers, so the globe centers in the rest
   useLayoutEffect(() => {
     const root = rootRef.current!;
     // layout boxes, not getBoundingClientRect: entrance animations transform the panels
@@ -249,8 +249,8 @@ export function Hud() {
               )}
               . Starlink hardware generations: Jonathan McDowell, planet4589.org. Earth: NASA Blue Marble Next Generation and
               Black Marble 2016. Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020, from ESA Gaia DR2. Stars:
-              ESA Hipparcos catalogue. Moon: NASA LRO (LROC WAC colour, LOLA elevation) via the SVS CGI Moon Kit. Mars: Viking colour mosaic (USGS
-              Astrogeology), MGS MOLA elevation (PDS). Mercury: MESSENGER MDIS colour and elevation (USGS). Venus: Magellan radar and topography
+              ESA Hipparcos catalog. Moon: NASA LRO (LROC WAC color, LOLA elevation) via the SVS CGI Moon Kit. Mars: Viking color mosaic (USGS
+              Astrogeology), MGS MOLA elevation (PDS). Mercury: MESSENGER MDIS color and elevation (USGS). Venus: Magellan radar and topography
               (USGS). Jupiter, Saturn, Uranus and Neptune: Hubble OPAL global maps (Simon et al., STScI). Moons: Galileo, Voyager and Cassini mosaics
               (USGS Astrogeology). Planets: VSOP87 (IMCCE). Orbiters, moons and the Voyagers: JPL Horizons. Kuiper belt: JPL Small-Body Database.
               SGP4, frames, routing and screening: own Rust/WASM.

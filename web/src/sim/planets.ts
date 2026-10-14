@@ -68,7 +68,7 @@ export function vsopHeliocentric(id: PlanetId | 'earth', jdUtc: number): Vec3 {
   return [x + 0.00000044036 * y - 0.000000190919 * z, -0.000000479966 * x + 0.917482137087 * y - 0.397776982902 * z, 0.397776982902 * y + 0.917482137087 * z];
 }
 
-/** Heliocentric position of any world (km, ICRF). The Oort cloud is centred on the Sun. */
+/** Heliocentric position of any world (km, ICRF). The Oort cloud is centered on the Sun. */
 export function heliocentric(body: BodyId, jdUtc: number): Vec3 {
   switch (body) {
     case 'oort':
@@ -105,7 +105,7 @@ export function geocentric(body: BodyId, jdUtc: number, P: Mat3 = precession(jdU
   }
 }
 
-/** Heliocentric orbit of the Earth–Moon barycentre, for drawing the Earth's orbit. */
+/** Heliocentric orbit of the Earth–Moon barycenter, for drawing the Earth's orbit. */
 export const embHeliocentric = (jdUtc: number): Vec3 => mul(ECLIPTIC_J2000, keplerian(EM_BARY, centuries(jdUtc)));
 
 /** Sidereal orbital periods (days), for sampling whole orbits. */

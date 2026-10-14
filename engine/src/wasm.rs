@@ -164,7 +164,7 @@ impl Network {
         self.edges_flat.len()
     }
 
-    /// Satellites that carry links (belong to a recognised shell).
+    /// Satellites that carry links (belong to a recognized shell).
     pub fn linked_count(&self) -> u32 {
         self.graph.shell_of.iter().filter(|&&s| s >= 0).count() as u32
     }

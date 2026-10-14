@@ -9,7 +9,7 @@ import { BODIES, BODY_ORDER } from '../sim/bodies';
 import { MOON_HEX, SPACECRAFT_HEX, WORLD_HEX, WORLD_KEY, the } from './Worlds';
 
 /** Well-known objects, by NORAD ID, for one-keystroke exploring. */
-/** Spacecraft beyond Earth orbit that still have catalogue numbers: found by NORAD ID too. */
+/** Spacecraft beyond Earth orbit that still have catalog numbers: found by NORAD ID too. */
 const DEEP_NORAD: Record<number, number> = { 10321: -31, 10271: -32, 43653: -121, 37773: -61 };
 
 const FEATURED: { norad: number; name: string; note: string }[] = [
@@ -128,7 +128,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     // a NORAD ID, also as the cards show it ("#100224") or "NORAD 100224": the exact match first,
     // then IDs it begins (while typing one out), then names containing the digits (STARLINK-31002)
     const digits = /^(?:#|NORAD\s*)?(\d+)$/.exec(query)?.[1];
-    // a deep-space craft's catalogue number flies there instead
+    // a deep-space craft's catalog number flies there instead
     const deepId = digits ? DEEP_NORAD[Number(digits)] : undefined;
     const deepHit = deepId === undefined ? [] : orbiters.filter((o) => o.id === `orb${deepId}`).map((o) => ({ ...o, section: 'Objects', meta: `NORAD ${digits} · ${o.meta}` }));
     const hits: number[] = [];

@@ -57,7 +57,7 @@ function celestialPatch(radius: number, u0: number, u1: number, v0: number, v1: 
   return g;
 }
 
-/** Approximate sRGB colour of a star from its B−V index (blackbody, after Charity's table). */
+/** Approximate sRGB color of a star from its B−V index (blackbody, after Charity's table). */
 const BV_STOPS: [number, string][] = [
   [-0.33, '#9db4ff'],
   [-0.17, '#aabfff'],
@@ -86,7 +86,7 @@ export interface StarCatalog {
 /** Decoder for public/data/stars.bin, written by scripts/sky.mjs. */
 export function decodeStars(buffer: ArrayBuffer): StarCatalog {
   const dv = new DataView(buffer);
-  if (new TextDecoder().decode(new Uint8Array(buffer, 0, 4)) !== 'STR2') throw new Error('not a star catalogue');
+  if (new TextDecoder().decode(new Uint8Array(buffer, 0, 4)) !== 'STR2') throw new Error('not a star catalog');
   const n = dv.getUint32(4, true);
   const ra = new Float32Array(n), dec = new Float32Array(n), vmag = new Float32Array(n), bv = new Float32Array(n);
   let o = 8;
@@ -222,7 +222,7 @@ export class Sky {
   }
 
   /** Unit vector (scene frame) to the middle of sky tile (c, r). */
-  static tileCentre(c: number, r: number): THREE.Vector3 {
+  static tileCenter(c: number, r: number): THREE.Vector3 {
     return celestialDir((c + 0.5) / GRID.cols, (r + 0.5) / GRID.rows);
   }
 
@@ -272,7 +272,7 @@ export class Sky {
   }
 
   /**
-   * Re-centre on the camera; `sunDir` is the unit vector to the Sun in the scene
+   * Re-center on the camera; `sunDir` is the unit vector to the Sun in the scene
    * frame, `sunAu` the Sun's distance (its disc shrinks to 0.35° from Mars, and
    * to a point of light at magnitude −3 from the Oort cloud).
    */

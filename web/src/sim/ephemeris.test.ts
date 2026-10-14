@@ -51,9 +51,9 @@ describe('Horizons trajectory snapshots', () => {
     it(`${body}: Hermite interpolation stays under 50 m at the stored step`, () => {
       for (const t of eph.tracks) {
         const e = errorsKm(t);
-        // 99.9% of samples under 50 m (Juno at perijove, 58 km/s round a tight curve: 200 m)
+        // 99.9% of samples under 50 m (Juno at perijove, 58 km/s around a tight curve: 200 m)
         expect(e[Math.floor(e.length * 0.001)], `object ${t.id}`).toBeLessThan(t.id === -61 ? 0.2 : 0.05);
-        // a manoeuvre or a seam between a mission's kernels shows as one bad sample: never more than 200 m
+        // a maneuver or a seam between a mission's kernels shows as one bad sample: never more than 200 m
         expect(e[0], `object ${t.id}`).toBeLessThan(0.2);
       }
     });

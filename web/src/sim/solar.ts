@@ -156,7 +156,7 @@ export function keplerian(el: Elements, T: number): Vec3 {
 
 /** J2000 ecliptic -> ICRF (equatorial J2000). */
 export const ECLIPTIC_J2000 = rotX(23.43928 * DEG);
-/** Earth–Moon mass ratio + 1: the Earth sits 1/82.3 of the way from the barycentre to the Moon. */
+/** Earth–Moon mass ratio + 1: the Earth sits 1/82.3 of the way from the barycenter to the Moon. */
 const EARTH_MOON_RATIO = 82.30057;
 
 /** Geocentric Mars (km, equatorial of date). Error ≲ 2′ in direction. */
@@ -179,7 +179,7 @@ export function sunGeocentric(jdUtc: number, P = precession(jdUtc)): Vec3 {
   return mul(P, [moonJ2000[0] / EARTH_MOON_RATIO - emb[0], moonJ2000[1] / EARTH_MOON_RATIO - emb[1], moonJ2000[2] / EARTH_MOON_RATIO - emb[2]]);
 }
 
-/** The Earth's centre from the Sun (km, ICRF: equator and equinox of J2000). */
+/** The Earth's center from the Sun (km, ICRF: equator and equinox of J2000). */
 export function earthHeliocentric(jdUtc: number): Vec3 {
   const T = centuries(jdUtc);
   const emb = mul(ECLIPTIC_J2000, keplerian(EM_BARY, T));

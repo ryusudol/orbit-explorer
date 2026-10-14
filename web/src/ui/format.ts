@@ -42,9 +42,9 @@ export function regime(altKm: number): string {
   return 'HEO';
 }
 
-/** "Wed 8 Oct 2026" in UTC. */
+/** "Wed, Oct 8, 2026" in UTC. */
 export const utcDate = (ms: number) =>
-  new Date(ms).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  new Date(ms).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 export function duration(s: number): string {
   if (s < 90) return `${Math.round(s)} s`;

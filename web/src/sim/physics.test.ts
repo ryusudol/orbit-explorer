@@ -1,22 +1,22 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { geodetic_to_teme } from '../engine-pkg/orbit_explorer_engine.js';
 import { loadEngineSync } from '../test/node';
-import { C_KM_S, capHalfAngle, fibreLatencyMs, geodeticToEcef, greatCircleKm, vacuumLatencyMs } from './physics';
+import { C_KM_S, capHalfAngle, fiberLatencyMs, geodeticToEcef, greatCircleKm, vacuumLatencyMs } from './physics';
 
 describe('latency model', () => {
   it('London-New York great circle is ~5,570 km', () => {
     expect(greatCircleKm(51.5072, -0.1276, 40.7128, -74.006)).toBeCloseTo(5570, -1);
   });
 
-  it('light in fibre is ~32% slower than in vacuum', () => {
+  it('light in fiber is ~32% slower than in vacuum', () => {
     const d = 5570;
-    expect(fibreLatencyMs(d)).toBeCloseTo(27.28, 1);
+    expect(fiberLatencyMs(d)).toBeCloseTo(27.28, 1);
     expect(vacuumLatencyMs(d)).toBeCloseTo((d / C_KM_S) * 1000, 9);
-    expect(fibreLatencyMs(d) / vacuumLatencyMs(d)).toBeCloseTo(1.4682, 4);
+    expect(fiberLatencyMs(d) / vacuumLatencyMs(d)).toBeCloseTo(1.4682, 4);
   });
 
   it('a satellite detour wins past a break-even distance', () => {
-    // up to 550 km, across, down: roughly d + 2h in vacuum vs d in fibre
+    // up to 550 km, across, down: roughly d + 2h in vacuum vs d in fiber
     const h = 550;
     const breakEven = (2 * h) / (1.4682 - 1);
     expect(breakEven).toBeGreaterThan(2000);

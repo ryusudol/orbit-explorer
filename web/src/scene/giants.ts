@@ -6,7 +6,7 @@
 // sphere's parametric latitude when they are built, so the bands sit where they
 // should on the flattened globe (Saturn is 10% wider than it is tall).
 //
-// Rings are a flat annulus in the equatorial plane, coloured and made opaque from
+// Rings are a flat annulus in the equatorial plane, colored and made opaque from
 // a radial profile built here from the rings' measured edges and typical optical
 // depths (C ring ~0.1, B ring 1–5, Cassini Division ~0.1, A ring ~0.5; Uranus' and
 // Neptune's narrow rings at their Voyager radii). The planet shades the rings, the
@@ -72,25 +72,25 @@ export interface RingSystem {
 
 const tan: [number, number, number] = [0.78, 0.68, 0.52];
 const greige: [number, number, number] = [0.55, 0.5, 0.44];
-const grey: [number, number, number] = [0.42, 0.42, 0.42];
+const gray: [number, number, number] = [0.42, 0.42, 0.42];
 
-/** Saturn: edges from the Cassini mission (km from the centre); gaps cut out of their rings. */
+/** Saturn: edges from the Cassini mission (km from the center); gaps cut out of their rings. */
 const SATURN_RINGS: RingSystem = {
   inner: 66_900,
   outer: 141_000,
   gain: 1.0,
   bands: [
-    { r0: 66_900, r1: 74_510, tau: 0.002, color: grey }, // D
+    { r0: 66_900, r1: 74_510, tau: 0.002, color: gray }, // D
     { r0: 74_658, r1: 92_000, tau: 0.09, color: greige, ripple: 0.5 }, // C
-    { r0: 77_770, r1: 77_920, tau: 0, color: grey }, // Colombo gap
-    { r0: 87_350, r1: 87_620, tau: 0, color: grey }, // Maxwell gap
+    { r0: 77_770, r1: 77_920, tau: 0, color: gray }, // Colombo gap
+    { r0: 87_350, r1: 87_620, tau: 0, color: gray }, // Maxwell gap
     { r0: 92_000, r1: 99_000, tau: 1.0, color: tan, ripple: 0.35 }, // inner B
     { r0: 99_000, r1: 117_580, tau: 2.6, color: tan, ripple: 0.25 }, // B
     { r0: 117_580, r1: 122_170, tau: 0.12, color: greige, ripple: 0.6 }, // Cassini Division
-    { r0: 117_540, r1: 117_830, tau: 0, color: grey }, // Huygens gap
+    { r0: 117_540, r1: 117_830, tau: 0, color: gray }, // Huygens gap
     { r0: 122_170, r1: 136_775, tau: 0.55, color: [0.7, 0.64, 0.54], ripple: 0.3 }, // A
-    { r0: 133_420, r1: 133_745, tau: 0, color: grey }, // Encke gap
-    { r0: 136_485, r1: 136_525, tau: 0, color: grey }, // Keeler gap
+    { r0: 133_420, r1: 133_745, tau: 0, color: gray }, // Encke gap
+    { r0: 136_485, r1: 136_525, tau: 0, color: gray }, // Keeler gap
     { r0: 140_150, r1: 140_250, tau: 0.5, color: [0.75, 0.72, 0.66] }, // F
   ],
 };
@@ -288,7 +288,7 @@ export class GasGiant {
     mat.colorNode = albedo.mul(bright).mul(sys.gain).mul(1.6);
     mat.opacityNode = max(alpha, 0.0).mul(0.97);
     mat.mrtNode = mrt({ bloom: float(0.1) });
-    // premultiplied-looking: the opacity darkens what's behind, the colour adds the ring's own light
+    // premultiplied-looking: the opacity darkens what's behind, the color adds the ring's own light
     mat.blending = THREE.CustomBlending;
     mat.blendSrc = THREE.OneFactor;
     mat.blendDst = THREE.OneMinusSrcAlphaFactor;

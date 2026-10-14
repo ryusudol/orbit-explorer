@@ -79,7 +79,7 @@ function vallado(t) {
     body += `<text x="${x(String(s)) + x.bandwidth() / 2}" y="${H - M.b + 16}" text-anchor="middle" font-size="10" fill="${t.muted}">${s}</text>`;
   });
   body += `<text x="${(M.l + W - M.r) / 2}" y="${H - 14}" text-anchor="middle" font-size="11.5" fill="${t.text2}">verification object (NORAD number), 33 cases</text>`;
-  body += `<text x="18" y="${(M.t + H - M.b) / 2}" transform="rotate(-90 18 ${(M.t + H - M.b) / 2})" text-anchor="middle" font-size="11.5" fill="${t.text2}">|Δr|, millimetres (log)</text>`;
+  body += `<text x="18" y="${(M.t + H - M.b) / 2}" transform="rotate(-90 18 ${(M.t + H - M.b) / 2})" text-anchor="middle" font-size="11.5" fill="${t.text2}">|Δr|, millimeters (log)</text>`;
   // legend
   body += `<circle cx="${W - 230}" cy="30" r="4" fill="${t.s1}"/><text x="${W - 220}" y="34" font-size="12" fill="${t.text2}">near-Earth (SGP4)</text>`;
   body += `<circle cx="${W - 230}" cy="50" r="4" fill="${t.s2}"/><text x="${W - 220}" y="54" font-size="12" fill="${t.text2}">deep space (SDP4)</text>`;
@@ -108,9 +108,9 @@ function satjs(t) {
   body += `<text x="${M.l + 39}" y="${H - M.b + 16}" text-anchor="middle" font-size="10.5" fill="${t.muted}">identical</text>`;
   bins.forEach((v, b) => (body += bar(barsX(lo + ((hi - lo) * b) / nb), barsX(lo + ((hi - lo) * (b + 1)) / nb), v, t.s1)));
   for (let e = lo; e <= hi; e += 2) body += `<text x="${barsX(e)}" y="${H - M.b + 16}" text-anchor="middle" font-size="10.5" fill="${t.muted}">${fmtPow(10 ** e)}</text>`;
-  body += `<text x="${(barsX(lo) + barsX(hi)) / 2}" y="${H - 14}" text-anchor="middle" font-size="11.5" fill="${t.text2}">|Δr| between the two implementations, millimetres (log bins)</text>`;
+  body += `<text x="${(barsX(lo) + barsX(hi)) / 2}" y="${H - 14}" text-anchor="middle" font-size="11.5" fill="${t.text2}">|Δr| between the two implementations, millimeters (log bins)</text>`;
   const worst = Math.max(...nz);
-  return frame(t, W, H, 'Orbit Explorer SGP4 (Rust→WASM) vs satellite.js on the live catalogue', `${rows.length.toLocaleString('en-US')} states, 1 day before to 3 days after epoch. Worst ${worst.toFixed(2)} mm (a 14-day HEO at +3 d): floating-point, not physics.`, body);
+  return frame(t, W, H, 'Orbit Explorer SGP4 (Rust→WASM) vs satellite.js on the live catalog', `${rows.length.toLocaleString('en-US')} states, 1 day before to 3 days after epoch. Worst ${worst.toFixed(2)} mm (a 14-day HEO at +3 d): floating-point, not physics.`, body);
 }
 
 // ------------------------------------------------------------------ scaling

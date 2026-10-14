@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-// One slice of the catalogue. Blocks on Atomics.wait for a keyframe request,
+// One slice of the catalog. Blocks on Atomics.wait for a keyframe request,
 // runs SGP4 for its objects straight into the shared buffer, signals done.
 // No messages are exchanged per keyframe.
 

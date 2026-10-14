@@ -72,7 +72,7 @@ export interface Catalog {
 export function decodeCatalog(buffer: ArrayBuffer): Catalog {
   const dv = new DataView(buffer);
   const magic = new TextDecoder().decode(new Uint8Array(buffer, 0, 4));
-  if (magic !== 'ORBX') throw new Error(`not a catalogue snapshot (magic ${magic})`);
+  if (magic !== 'ORBX') throw new Error(`not a catalog snapshot (magic ${magic})`);
   const version = dv.getUint32(4, true);
   if (version !== 1) throw new Error(`unsupported snapshot version ${version}`);
   const n = dv.getUint32(8, true);
@@ -115,7 +115,7 @@ export function decodeCatalog(buffer: ArrayBuffer): Catalog {
   return { count: n, generatedMs, packed, ids, category, group, names };
 }
 
-/** Elements of the objects matching `keep`, plus their catalogue indices. */
+/** Elements of the objects matching `keep`, plus their catalog indices. */
 export function subset(catalog: Catalog, keep: (i: number) => boolean): { packed: Float64Array; indices: Uint32Array } {
   const idx: number[] = [];
   for (let i = 0; i < catalog.count; i++) if (keep(i)) idx.push(i);

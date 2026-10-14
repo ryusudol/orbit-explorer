@@ -1,4 +1,4 @@
-//! Time the app's default conjunction screen on the catalogue snapshot.
+//! Time the app's default conjunction screen on the catalog snapshot.
 //!
 //!     cargo run --release --example screen -- ../web/public/data/catalog.bin [hours] [step_s] [parts] [events.csv]
 //!

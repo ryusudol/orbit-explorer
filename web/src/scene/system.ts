@@ -1,9 +1,9 @@
-// Every world in one scene: the planets, the Moon, and the Sun-centred view out
+// Every world in one scene: the planets, the Moon, and the Sun-centered view out
 // to the Oort cloud.
 //
 // Positions are geocentric, equatorial of date, in km (sim/planets.ts), kept in
 // float64 here. The scene's origin is wherever precision is needed: the focused
-// world's centre, or the camera itself while travelling between worlds. A world
+// world's center, or the camera itself while traveling between worlds. A world
 // beyond 700,000 km is drawn closer along its true direction and scaled down by the
 // same factor (far.ts): same direction, same angular size, same lighting. Below a
 // few pixels across, each world is also drawn as a point of light at its apparent
@@ -50,7 +50,7 @@ const LOOKS: Record<BodyId, Look> = {
   earth: { type: 'earth' },
   moon: { type: 'rocky', look: { minnaert: 0.5, gain: 0.6, relief: 1.6 }, uhd: true, relief: true },
   mars: { type: 'rocky', look: { minnaert: 0.8, gain: 0.82, relief: 1.8, haze: { color: [1.0, 0.72, 0.5], heightKm: 40, strength: 0.4 } }, uhd: true, relief: true },
-  // MESSENGER's colour is subtle: a little warmer and darker than the Moon
+  // MESSENGER's color is subtle: a little warmer and darker than the Moon
   mercury: { type: 'rocky', look: { minnaert: 0.55, gain: 0.72, relief: 1.6 }, uhd: false, relief: true },
   // Magellan's radar view of the surface, under the cloud deck (see VENUS_CLOUDS)
   venus: { type: 'rocky', look: { minnaert: 0.9, gain: 0.85, relief: 2.5 }, uhd: false, relief: true },
@@ -61,7 +61,7 @@ const LOOKS: Record<BodyId, Look> = {
   oort: { type: 'none' },
 };
 
-/** Point-of-light colours. */
+/** Point-of-light colors. */
 const STAR_TINT: Partial<Record<BodyId, string>> = { mars: '#ffb48a', earth: '#bcd6ff', mercury: '#e6ddd2', venus: '#fff4dc', jupiter: '#ffeacc', saturn: '#ffe5b4', uranus: '#d8f6ff', neptune: '#bccdff' };
 
 /** Moons with a global map (scripts/worlds.mjs writes /textures/moons/{file}.jpg). */
@@ -106,7 +106,7 @@ export interface OrbiterState {
   /** the sampled trajectory, for spacecraft and fast moons */
   track?: Track;
   valid: boolean;
-  /** position and velocity relative to the world's centre, scene axes (km, km/s) */
+  /** position and velocity relative to the world's center, scene axes (km, km/s) */
   pos: THREE.Vector3;
   vel: THREE.Vector3;
   /** listed in BODIES: named in the scene, a thick orbit, a body of its own */
@@ -139,7 +139,7 @@ function describeMoon(e: EphObject, body: BodyId, s: ArrayLike<number> | null, p
     const period = el.periodS / 86400;
     const round = period > 600 ? `${(period / 365.25).toFixed(1)} years` : period > 2 ? `${Math.round(period)} days` : `${(period * 24).toFixed(1)} hours`;
     const dist = el.a > 1e6 ? `${(el.a / 1e6).toFixed(el.a > 1e7 ? 0 : 1)} million km` : `${Math.round(el.a / 1000).toLocaleString('en-US')},000 km`;
-    what = far ? `An irregular moon${retro ? ' on a backward orbit' : ''}, probably a captured asteroid or comet: ${round} round ${BODIES[body].the} at ${dist}` : `An inner moon, ${round} round ${BODIES[body].the} at ${dist}`;
+    what = far ? `An irregular moon${retro ? ' on a backward orbit' : ''}, probably a captured asteroid or comet: ${round} around ${BODIES[body].the} at ${dist}` : `An inner moon, ${round} around ${BODIES[body].the} at ${dist}`;
   }
   const found = e.found ? ` Found in ${e.found.year}${e.found.by ? ` by ${e.found.by}` : ''}.` : '';
   return `${what}. ${size}.${found}`;
@@ -169,7 +169,7 @@ export class SolarSystem {
   private paths: OrbitPath[] = [];
   private thin = new SegmentLayer(640 * THIN_SAMPLES, new THREE.Color('#dfe9ff'), 0.16);
   private pathAt = 0;
-  /** each orbit's samples relative to its world's centre: the scene origin moves while travelling */
+  /** each orbit's samples relative to its world's center: the scene origin moves while traveling */
   private pathRel = Array.from({ length: THICK_PATHS }, () => ({ id: 0, pts: new Float64Array(ORBIT_SAMPLES * 3) }));
   private thinRel = new Map<number, { at: number; pts: Float64Array }>();
   private trackPts = new Float64Array(ORBIT_SAMPLES * 3);
@@ -199,19 +199,19 @@ export class SolarSystem {
     private tier: 'uhd' | 'standard',
     private pixelRatio: number,
   ) {
-    const grey = new THREE.DataTexture(new Uint8Array([40, 40, 40, 255]), 1, 1);
-    grey.needsUpdate = true;
-    this.placeholder = grey;
+    const gray = new THREE.DataTexture(new Uint8Array([40, 40, 40, 255]), 1, 1);
+    gray.needsUpdate = true;
+    this.placeholder = gray;
     const make = (id: BodyId): World => {
       const L = LOOKS[id];
       const B = BODIES[id];
       let planet: Planet | null = null, giant: GasGiant | null = null;
       let group: THREE.Object3D = earthGroup;
       if (L.type === 'rocky') {
-        planet = new Planet(id, { radiusKm: B.radiusKm, ...L.look }, grey);
+        planet = new Planet(id, { radiusKm: B.radiusKm, ...L.look }, gray);
         group = planet.group;
       } else if (L.type === 'giant') {
-        giant = new GasGiant(id, { radiusKm: B.radiusKm, polarKm: B.polarKm, ...L.look }, grey);
+        giant = new GasGiant(id, { radiusKm: B.radiusKm, polarKm: B.polarKm, ...L.look }, gray);
         group = giant.group;
       } else if (L.type === 'none') {
         group = new THREE.Group();
@@ -222,9 +222,9 @@ export class SolarSystem {
     this.moon = this.worlds.moon.planet!;
     this.mars = this.worlds.mars.planet!;
     this.moon.fill.value = 0.012; // earthshine
-    // Venus as we would see it: a bright, nearly featureless deck of sulphuric-acid cloud
+    // Venus as we would see it: a bright, nearly featureless deck of sulfuric-acid cloud
     const R = BODIES.venus.radiusKm + VENUS_CLOUDS.heightKm;
-    this.venusClouds = new MappedMoon('venus-clouds', { radii: [R, R, R], minnaert: 0.85, gain: 1.0 }, grey);
+    this.venusClouds = new MappedMoon('venus-clouds', { radii: [R, R, R], minnaert: 0.85, gain: 1.0 }, gray);
     this.worlds.venus.group.add(this.venusClouds.object);
     for (let i = 0; i < THICK_PATHS; i++) this.paths.push(new OrbitPath(ORBIT_SAMPLES, 1.3));
     this.moonGroup.name = 'moons';
@@ -235,7 +235,7 @@ export class SolarSystem {
 
   // ------------------------------------------------------------------ data
 
-  /** The 2k colour map: enough for a world seen from another. */
+  /** The 2k color map: enough for a world seen from another. */
   loadPreview(id: BodyId) {
     const L = LOOKS[id];
     if (L.type !== 'rocky' && L.type !== 'giant') return Promise.resolve();
@@ -264,7 +264,7 @@ export class SolarSystem {
   }
 
   /**
-   * Full imagery for a world we are going to: 4k colour (and relief for rocky
+   * Full imagery for a world we are going to: 4k color (and relief for rocky
    * worlds), then on UHD displays the Moon's and Mars' 16k tiles, those facing
    * `toward` (a body-fixed direction) first; and the maps of its big moons.
    */
@@ -295,7 +295,7 @@ export class SolarSystem {
       if (this.tier !== 'uhd' || L.type !== 'rocky' || !L.uhd) return;
       const planet = w.planet!;
       const d = toward();
-      const order = [...ALL_TILES].sort((p, q) => Planet.tileCentre(q[0], q[1]).dot(d) - Planet.tileCentre(p[0], p[1]).dot(d));
+      const order = [...ALL_TILES].sort((p, q) => Planet.tileCenter(q[0], q[1]).dot(d) - Planet.tileCenter(p[0], p[1]).dot(d));
       const failed = await loadInOrder(order, async (col, row) => {
         const [tc, tr] = await Promise.all([ktx(`/textures/${id}-color-uhd-${col}-${row}.ktx2`, true), ktx(`/textures/${id}-relief-uhd-${col}-${row}.ktx2`, false)]);
         planet.setTile(col, row, tc, tr);
@@ -535,7 +535,7 @@ export class SolarSystem {
   private statesJd = NaN;
   private statesBody: BodyId | null = null;
 
-  /** Orbiters of `body` at `jd`, relative to its centre (scene axes); [] for the Earth. */
+  /** Orbiters of `body` at `jd`, relative to its center (scene axes); [] for the Earth. */
   private refreshOrbiters(body: BodyId, jd: number) {
     if (this.orbiterBody === body && this.statesBody === body && this.statesJd === jd) return;
     const P = this.P;
@@ -622,8 +622,8 @@ export class SolarSystem {
   }
 
   /**
-   * One orbit, `n` samples relative to the world's centre (scene axes) written to
-   * `out`: a period centred on now (phased toward now when `phased`), from the
+   * One orbit, `n` samples relative to the world's center (scene axes) written to
+   * `out`: a period centered on now (phased toward now when `phased`), from the
    * track where it is published and from two-body motion beyond.
    */
   private sampleOrbit(s: OrbiterState, body: BodyId, jd: number, n: number, out: Float64Array, phased: boolean) {
@@ -673,7 +673,7 @@ export class SolarSystem {
    * path: bound, with the whole ellipse inside half the world's Hill sphere, where its pull
    * beats the Sun's (or the Earth's, for the Moon). BepiColombo, arriving at Mercury in a loose
    * capture the Sun shapes as much as Mercury does, is not until late November 2026.
-   * Moons, and the Voyagers' Sun-centred tracks, always count.
+   * Moons, and the Voyagers' Sun-centered tracks, always count.
    */
   orbiting(body: BodyId, s: OrbiterState): boolean {
     if (s.o.kind === 'moon' || body === 'oort') return true;
@@ -683,7 +683,7 @@ export class SolarSystem {
     return osculating([s.pos.x, s.pos.y, s.pos.z, s.vel.x, s.vel.y, s.vel.z], mu).apoapsisKm < hillKm / 2;
   }
 
-  /** The closest the track comes to the world's centre from now on: km and UTC Julian date (NaN when none). */
+  /** The closest the track comes to the world's center from now on: km and UTC Julian date (NaN when none). */
   closestAhead(s: OrbiterState, jd: number): { km: number; jd: number; atEnd: boolean } {
     const t = s.track;
     if (!t) return { km: NaN, jd: NaN, atEnd: false };
@@ -703,7 +703,7 @@ export class SolarSystem {
   /**
    * Draw the focused world's orbiters: dots, the selection ring, every orbit
    * (dim) and the selected one (bright), and the moons as bodies.
-   * `origin` is the world's centre in scene coordinates.
+   * `origin` is the world's center in scene coordinates.
    */
   updateOrbiters(body: BodyId | null, jd: number, origin: THREE.Vector3, cam: THREE.Vector3, selected: number | null, hovered: number | null, show: boolean, selectedAsModel = false, viewH = 1, fovDeg = 40, near = 1, camera?: THREE.PerspectiveCamera) {
     const active = body !== null && body !== 'earth' && show;
@@ -735,7 +735,7 @@ export class SolarSystem {
     this.dots.commit(k, cam);
     this.rings.commit(nr, cam);
 
-    // thick orbits for the curated orbiters and the selection: one period centred on now,
+    // thick orbits for the curated orbiters and the selection: one period centered on now,
     // resampled twice a second (the selected one every frame)
     const now = performance.now();
     const refresh = now - this.pathAt > 500;
@@ -765,7 +765,7 @@ export class SolarSystem {
         rel.id = s.o.id;
         this.sampleOrbit(s, body!, jd, ORBIT_SAMPLES, rel.pts, true);
       }
-      // thick lines break up (Line2's screen-space maths) once a segment reaches ~10⁹ near-plane
+      // thick lines break up (Line2's screen-space math) once a segment reaches ~10⁹ near-plane
       // distances: following a Voyager, only the nearest 30,000 km of its track is drawn thick
       const reach = near * 2e7;
       const pts = this.trackPts;

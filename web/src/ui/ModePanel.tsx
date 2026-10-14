@@ -9,7 +9,7 @@ const PANELS: Partial<Record<Tab, { title: string; blurb: string; icon: IconName
   route: { title: 'Laser routing', blurb: 'The fastest path across Starlink’s laser mesh, rebuilt 4× a second.', icon: 'route', body: () => <RoutePanel /> },
   conj: { title: 'Conjunctions', blurb: 'Close approaches between every tracked object, screened ahead.', icon: 'radar', body: () => <ConjunctionPanel /> },
   coverage: { title: 'Coverage', blurb: 'Where on Earth a Starlink satellite is in view right now.', icon: 'globe', body: () => <CoveragePanel /> },
-  catalog: { title: 'Catalogue', blurb: 'What is up there, and at which altitude.', icon: 'layers', body: () => <CatalogPanel /> },
+  catalog: { title: 'Catalog', blurb: 'What is up there, and at which altitude.', icon: 'layers', body: () => <CatalogPanel /> },
   perf: { title: 'Engine', blurb: 'How fast the physics and renderer run in this browser.', icon: 'gauge', body: () => <PerfPanel /> },
   fleet: { title: 'Orbiters', blurb: 'What circles this world, on its missions’ own trajectories.', icon: 'satellite', body: () => <FleetPanel /> },
   relay: { title: 'Link to Earth', blurb: 'When a site can talk to Earth: directly, or through an orbiter passing over.', icon: 'link', body: () => <RelayPanel /> },

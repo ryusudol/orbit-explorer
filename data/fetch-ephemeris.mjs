@@ -10,7 +10,7 @@
 //
 //   track     position + velocity at a fixed step over a window around now; the
 //             app Hermite-interpolates between samples, as for the SGP4 keyframes.
-//             Spacecraft, and every moon that goes round in under 20 days (the
+//             Spacecraft, and every moon that goes around in under 20 days (the
 //             step keeps ≥ ~96 samples per orbit).
 //   elements  osculating Keplerian elements at one epoch, for the ~400 small
 //             irregular moons whose orbits take months to years. The Sun's pull
@@ -36,7 +36,7 @@
 //     path     { jd0 (UTC), stepS, count, offset }: f32[count * 3] x, y, z (km)
 //   blocks start on 8-byte boundaries
 //     elements { epochJd (UTC), a (km), e, i, node, peri, M (rad), n (rad/s) }
-//   relative to the world's centre (the Sun's for the Voyagers), ICRF axes.
+//   relative to the world's center (the Sun's for the Voyagers), ICRF axes.
 // float32 keeps ~1 mm at 45,000 km and ~4 m at Callisto's 1.9 million km.
 
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -219,7 +219,7 @@ async function sample(center, id, step, jd0, jd1, positionsOnly = false, f64 = f
   return null;
 }
 
-/** Osculating elements about the centre at `jd` (ICRF), plus the name and size. */
+/** Osculating elements about the center at `jd` (ICRF), plus the name and size. */
 async function elements(center, id, jd) {
   const text = await horizons({
     COMMAND: id,
@@ -240,7 +240,7 @@ async function elements(center, id, jd) {
 }
 
 /**
- * Is the first sample within 100 million km of the centre? A moon too new for
+ * Is the first sample within 100 million km of the center? A moon too new for
  * JPL's satellite kernels can share its number with an asteroid, and Horizons
  * then answers for the asteroid.
  */

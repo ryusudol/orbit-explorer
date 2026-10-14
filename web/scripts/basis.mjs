@@ -23,9 +23,9 @@ export async function encodeKtx2(rgb, width, height, quality) {
 }
 
 /**
- * Linear RGBA rows top-down -> KTX2, for data rather than colour (relief maps:
+ * Linear RGBA rows top-down -> KTX2, for data rather than color (relief maps:
  * one slope in RGB, the other in alpha, so ETC1S codes each as its own
- * grey slice).
+ * gray slice).
  */
 export async function encodeKtx2Data(rgba, width, height, quality) {
   const flipped = await sharp(rgba, { raw: { width, height, channels: 4 } }).flip().raw().toBuffer();

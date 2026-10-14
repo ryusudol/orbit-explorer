@@ -3,7 +3,7 @@
 //
 // Mark specs follow the dataviz reference: 2 px lines, hairline recessive grid,
 // area wash at 10%, 2 px surface gaps between touching fills, text in text
-// tokens (never series colours), crosshair tooltips on lines, per-mark tooltips on bars.
+// tokens (never series colors), crosshair tooltips on lines, per-mark tooltips on bars.
 
 import { axisBottom, axisLeft } from 'd3-axis';
 import { bisector, max } from 'd3-array';
@@ -19,7 +19,7 @@ export const INK = { text: '#f0f0fa', text2: 'rgba(240,240,250,0.68)', muted: 'r
 const SERIOUS = '#ff5a5a';
 /**
  * Single-quantity lines are monochrome, told apart by stroke style rather than
- * hue: the measured series solid white, the reference series dotted grey. Hue
+ * hue: the measured series solid white, the reference series dotted gray. Hue
  * is kept for the object groups, where it encodes data shared with the globe.
  */
 export const LINE = { primary: '#f0f0fa', reference: 'rgba(240,240,250,0.55)' };
@@ -184,18 +184,18 @@ function styleAxis(g: G) {
 
 export interface LatencyData {
   samples: LatencySample[];
-  fibreMs: number | null;
+  fiberMs: number | null;
 }
 
 export function drawLatency(root: HTMLDivElement, data: LatencyData, width: number) {
   const H = 150;
   const M = { t: 10, r: 62, b: 22, l: 30 };
-  const f = frame(root, H, ['grid', 'axes', 'fibre', 'area', 'sat', 'labels', 'cross', 'hit'], data, width);
+  const f = frame(root, H, ['grid', 'axes', 'fiber', 'area', 'sat', 'labels', 'cross', 'hit'], data, width);
   const pts = data.samples.filter((s) => s.sat !== null) as { t: number; sat: number }[];
   const t0 = data.samples.length ? data.samples[0].t : 0;
   const t1 = data.samples.length ? data.samples[data.samples.length - 1].t : 1;
   const x = scaleUtc().domain([new Date(t0), new Date(Math.max(t1, t0 + 1000))]).range([M.l, width - M.r]);
-  const top = Math.max(data.fibreMs ?? 0, max(pts, (p) => p.sat) ?? 0, 10) * 1.18;
+  const top = Math.max(data.fiberMs ?? 0, max(pts, (p) => p.sat) ?? 0, 10) * 1.18;
   const y = scaleLinear().domain([0, top]).nice().range([H - M.b, M.t]);
 
   gridY(f.g.grid, y, y.ticks(4), M.l, width - M.r);
@@ -233,9 +233,9 @@ export function drawLatency(root: HTMLDivElement, data: LatencyData, width: numb
     .attr('stroke-width', 2)
     .attr('stroke-linejoin', 'round')
     .attr('stroke-linecap', 'round');
-  f.g.fibre
+  f.g.fiber
     .selectAll('line')
-    .data(data.fibreMs !== null && data.samples.length ? [data.fibreMs] : [])
+    .data(data.fiberMs !== null && data.samples.length ? [data.fiberMs] : [])
     .join('line')
     .attr('x1', M.l)
     .attr('x2', width - M.r)
@@ -250,7 +250,7 @@ export function drawLatency(root: HTMLDivElement, data: LatencyData, width: numb
   const last = pts[pts.length - 1];
   const labels: { y: number; text: string }[] = [];
   if (last) labels.push({ y: y(last.sat), text: `${last.sat.toFixed(1)} ms` });
-  if (data.fibreMs !== null && data.samples.length) labels.push({ y: y(data.fibreMs), text: `${data.fibreMs.toFixed(1)} ms` });
+  if (data.fiberMs !== null && data.samples.length) labels.push({ y: y(data.fiberMs), text: `${data.fiberMs.toFixed(1)} ms` });
   f.g.labels
     .selectAll('text')
     .data(labels)
@@ -282,11 +282,11 @@ export function drawLatency(root: HTMLDivElement, data: LatencyData, width: numb
       const s = p[i];
       const dots = [
         { v: s.sat, c: LINE.primary },
-        ...(d.fibreMs !== null ? [{ v: d.fibreMs, c: LINE.reference }] : []),
+        ...(d.fiberMs !== null ? [{ v: d.fiberMs, c: LINE.reference }] : []),
       ];
       tooltip(f.tip, formatUtc(s.t) + ' UTC', [
         { color: LINE.primary, value: `${s.sat.toFixed(2)} ms`, label: 'laser path' },
-        ...(d.fibreMs !== null ? [{ color: LINE.reference, value: `${d.fibreMs.toFixed(2)} ms`, label: 'fibre, great circle' }] : []),
+        ...(d.fiberMs !== null ? [{ color: LINE.reference, value: `${d.fiberMs.toFixed(2)} ms`, label: 'fiber, great circle' }] : []),
       ]);
       glide(f, [x(new Date(s.t)), ...dots.map((q) => y(q.v))], ([px, ...ys]) => {
         crosshair(cross, px, ys, dots.map((q) => q.c), M.t, H - M.b);
@@ -512,7 +512,7 @@ const GROUP_LABELS = ['Starlink', 'Debris & rocket bodies', 'Other satellites'];
 /**
  * Small multiples, one row per group sharing the log-altitude axis. The groups
  * differ by 30x in peak count, so a shared stacked scale would flatten all but
- * Starlink; each row carries its own (labelled) linear count scale instead.
+ * Starlink; each row carries its own (labeled) linear count scale instead.
  */
 export function drawAltitude(root: HTMLDivElement, data: AltitudeData, width: number) {
   const rowH = 56, gap = 26;

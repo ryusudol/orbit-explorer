@@ -8,7 +8,7 @@ import { Loader } from './ui/Loader';
 async function loadCatalog(): Promise<{ catalog: Catalog; meta: CatalogMeta }> {
   const [bin, meta] = await Promise.all([
     fetch('/data/catalog.bin').then((r) => {
-      if (!r.ok) throw new Error(`catalogue snapshot: HTTP ${r.status}`);
+      if (!r.ok) throw new Error(`catalog snapshot: HTTP ${r.status}`);
       return r.arrayBuffer();
     }),
     fetch('/data/catalog.json').then((r) => r.json() as Promise<CatalogMeta>),
@@ -32,13 +32,13 @@ export function App() {
       return;
     }
     let controller: SceneController | null = null;
-    let cancelled = false;
+    let canceled = false;
     // start on the next task: StrictMode's immediate mount/unmount/mount in
     // development then never spins up a second renderer and worker pool
     const start = setTimeout(() => boot().catch(fail), 0);
     const boot = async () => {
       const { catalog, meta } = await loadCatalog();
-      if (cancelled) return;
+      if (canceled) return;
       const counts: [number, number, number] = [0, 0, 0];
       const altitude = new Float32Array(catalog.count);
       for (let i = 0; i < catalog.count; i++) {
@@ -49,7 +49,7 @@ export function App() {
       controller = new SceneController(canvasRef.current!, labelsRef.current!, catalog);
       if (import.meta.env.DEV) Object.assign(globalThis, { __orbitExplorer: { store: useStore, controller } });
       await controller.init();
-      if (!cancelled) {
+      if (!canceled) {
         performance.mark('orbit-explorer-ready'); // first interactive frame, for load-time measurements
         set({ phase: 'ready', readyMs: performance.now() });
       }
@@ -59,7 +59,7 @@ export function App() {
       set({ phase: 'error', error: err instanceof Error ? err.message : String(err) });
     };
     return () => {
-      cancelled = true;
+      canceled = true;
       clearTimeout(start);
       controller?.dispose();
     };

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Builds the textures for Mercury, Venus, the giant planets and their big moons.
 //
-//   Mercury   MESSENGER MDIS 3-colour basemap (665 m/px) and the USGS MESSENGER DEM
-//   Venus     Magellan C3-MDIR colourised radar mosaic and Magellan topography: the
+//   Mercury   MESSENGER MDIS 3-color basemap (665 m/px) and the USGS MESSENGER DEM
+//   Venus     Magellan C3-MDIR colorized radar mosaic and Magellan topography: the
 //             surface, seen through the clouds (the "Radar surface" layer). The
 //             clouds themselves are made here: no global visible-light map of
 //             Venus' cloud tops exists. A pale, almost featureless deck, with the
@@ -11,20 +11,20 @@
 //             2025, Neptune 2025). Each covers what Hubble could see: Saturn's equator
 //             is hidden by the rings' shadow, Uranus' south and Neptune's far north
 //             are turned away in winter. Bands circle the planet, so the gaps are
-//             filled from the nearest row's average colour (Uranus and Neptune
+//             filled from the nearest row's average color (Uranus and Neptune
 //             mirror their visible hemisphere). Saturn's north polar hexagon, beyond
 //             the map's 80°N, is painted at its measured 78°N. Hubble's filter sets
-//             aren't true colour: Uranus and Neptune are balanced to the pale
+//             aren't true color: Uranus and Neptune are balanced to the pale
 //             greenish blue measured by Irwin et al. (2024), Saturn to its butterscotch.
 //   Moons     USGS Astrogeology global mosaics from Galileo, Voyager and Cassini,
-//             (one-band maps tinted to the moon's true colour). Uranus' five big
+//             (one-band maps tinted to the moon's true color). Uranus' five big
 //             moons (USGS Voyager 2 mosaics, from JPL's Solar System Simulator) and
 //             Triton were only ever seen in the south, by Voyager 2 in 1986 and 1989:
 //             their unseen north is completed from the terrain that was seen
 //             (completeMap).
 //
 // Every map is written in the app's layout: plate carrée, east longitude from
-// −180° at the left edge, north up. The source maps' own conventions (centred on
+// −180° at the left edge, north up. The source maps' own conventions (centered on
 // 0° or 180°, longitude east or west) come from their ISIS labels. The giants'
 // rows are converted from planetographic latitude to the parametric latitude of
 // the flattened globe the app draws (scene/giants.ts).
@@ -98,12 +98,12 @@ function roll(buf, w, h, ch, left) {
 async function usgsMap(tif, w, h) {
   const left = await leftLongitude(tif);
   const src = await cached(`${USGS}/${tif}`);
-  const rgb = await sharp(src, { limitInputPixels: false }).resize(w, h, { kernel: 'lanczos3', fit: 'fill' }).removeAlpha().toColourspace('srgb').raw().toBuffer();
+  const rgb = await sharp(src, { limitInputPixels: false }).resize(w, h, { kernel: 'lanczos3', fit: 'fill' }).removeAlpha().toColorspace('srgb').raw().toBuffer();
   return roll(rgb, w, h, 3, left);
 }
 
-/** Every colour tier: 2k JPEG, 4k JPEG + KTX2 (or the source's own size if smaller). */
-async function colourTiers(name, rgb, W, H, quality = 200) {
+/** Every color tier: 2k JPEG, 4k JPEG + KTX2 (or the source's own size if smaller). */
+async function colorTiers(name, rgb, W, H, quality = 200) {
   const img = () => sharp(rgb, { raw: { width: W, height: H, channels: 3 } });
   await save(join(out, `${name}-2k.jpg`), await img().resize(2048, 1024, { kernel: 'lanczos3' }).jpeg({ quality: 86, mozjpeg: true }).toBuffer());
   await save(join(out, `${name}.jpg`), await img().jpeg({ quality: 86, mozjpeg: true }).toBuffer());
@@ -118,13 +118,13 @@ async function reliefTier(name, km, W, H, radiusKm) {
 }
 
 /**
- * A 16-bit elevation file (metres) as float km at w x h, in the app's layout,
- * box-averaged from full resolution. sharp's usual path turns 16-bit greyscale
+ * A 16-bit elevation file (meters) as float km at w x h, in the app's layout,
+ * box-averaged from full resolution. sharp's usual path turns 16-bit grayscale
  * into 8 bits and drops the sign of heights below the datum, so the samples are
  * read as raw 16-bit words; any value above 32767 means the file is signed.
  */
 async function elevation(src, w, h, left = -180) {
-  const { data, info } = await sharp(src, { limitInputPixels: false }).toColourspace('grey16').raw({ depth: 'ushort' }).toBuffer({ resolveWithObject: true });
+  const { data, info } = await sharp(src, { limitInputPixels: false }).toColorspace('grey16').raw({ depth: 'ushort' }).toBuffer({ resolveWithObject: true });
   const W = info.width, H = info.height;
   const u = new Uint16Array(data.buffer, data.byteOffset, W * H);
   let signed = false;
@@ -191,7 +191,7 @@ function makeNoise(seed) {
   return { noise, fbm, rand };
 }
 
-/** Unit vector at the centre of pixel (x, y) of a w x h map in the app's layout. */
+/** Unit vector at the center of pixel (x, y) of a w x h map in the app's layout. */
 const dirAt = (x, y, w, h) => {
   const lon = -Math.PI + ((x + 0.5) / w) * 2 * Math.PI, lat = Math.PI / 2 - ((y + 0.5) / h) * Math.PI;
   return [Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat)];
@@ -201,7 +201,7 @@ const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 
-/** Float albedo -> RGB with a two-colour ramp. */
+/** Float albedo -> RGB with a two-color ramp. */
 function tint(a, dark, light, lo = 0, hi = 1) {
   const o = Buffer.alloc(a.length * 3);
   const D = hex(dark), L = hex(light);
@@ -214,8 +214,8 @@ function tint(a, dark, light, lo = 0, hi = 1) {
   return o;
 }
 
-/** An RGB map's luminance through a two-colour ramp: grey mosaics in their moon's colour. */
-function tintGrey(rgb, dark, light, gamma = 1) {
+/** An RGB map's luminance through a two-color ramp: gray mosaics in their moon's color. */
+function tintGray(rgb, dark, light, gamma = 1) {
   const n = rgb.length / 3;
   const a = new Float32Array(n);
   for (let i = 0; i < n; i++) a[i] = Math.pow((0.299 * rgb[3 * i] + 0.587 * rgb[3 * i + 1] + 0.114 * rgb[3 * i + 2]) / 255, gamma);
@@ -224,7 +224,7 @@ function tintGrey(rgb, dark, light, gamma = 1) {
 
 /**
  * Where a mosaic has no data (black: never imaged, like Triton's north, dark in
- * 1989), fill with the map's own mean colour, mottled, so the globe isn't holed.
+ * 1989), fill with the map's own mean color, mottled, so the globe isn't holed.
  */
 function fillNoData(rgb, w, h, seed) {
   const { fbm } = makeNoise(seed);
@@ -276,7 +276,7 @@ function blur(src, w, h, r, passes = 3) {
  * imaged. The unseen part is made from what was seen, so it has the same resolution
  * and character: its fine texture is quilted from many small patches of the sharpest
  * seen terrain (each about 8° across, stretched to its new latitude, cross-faded with
- * its neighbours, never large enough to repeat a landmark), on the large-scale
+ * its neighbors, never large enough to repeat a landmark), on the large-scale
  * brightness at the edge of the seen region, relaxing to the mean with distance and
  * mottled by noise. Seen terrain that is smooth (frames taken from far off, smeared
  * across the map) gets the same texture, fading out where the mosaic has its own detail.
@@ -395,7 +395,7 @@ function completeMap(L0, seen0, w, h, seed) {
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
       const a = clamp01((alpha[i] - 0.5) * 2.2) ** 1.4;
-      // overlapping patches average toward grey: dividing by √Σw² keeps the texture's contrast
+      // overlapping patches average toward gray: dividing by √Σw² keeps the texture's contrast
       const fine = w2[i] > 0 ? (0.8 * acc[i]) / Math.sqrt(w2[i]) : 0;
       const real = L[i] + smooth[i] * fine;
       if (a >= 1) {
@@ -422,11 +422,11 @@ function lumSeen(rgb, w, h) {
 }
 
 /**
- * Brightness to true colour: the mean set to `target` (relative albedo), deviations
+ * Brightness to true color: the mean set to `target` (relative albedo), deviations
  * scaled by `contrast`, times an RGB tint; optional extra tint on bright terrain south of
  * `capLat` (Triton's pink polar cap).
  */
-function albedoColour(v, w, h, { target, contrast = 1, tint = [1, 1, 1], cap }) {
+function albedoColor(v, w, h, { target, contrast = 1, tint = [1, 1, 1], cap }) {
   let m = 0;
   for (const x of v) m += x;
   m /= v.length;
@@ -449,14 +449,14 @@ function albedoColour(v, w, h, { target, contrast = 1, tint = [1, 1, 1], cap }) 
 
 /**
  * Triton from the USGS Voyager 2 mosaic. Voyager flew past in 1989 in southern
- * summer: the north was in darkness and never seen. The mosaic's colour is Voyager's
- * enhanced orange-green-violet; Triton is a pale peach-grey, the south polar cap
- * pinker. So: brightness only, true colour, and the unseen north completed from the
+ * summer: the north was in darkness and never seen. The mosaic's color is Voyager's
+ * enhanced orange-green-violet; Triton is a pale peach-gray, the south polar cap
+ * pinker. So: brightness only, true color, and the unseen north completed from the
  * seen terrain (completeMap).
  */
 function triton(rgb, w, h) {
   const { L, seen } = lumSeen(rgb, w, h);
-  return albedoColour(completeMap(L, seen, w, h, 801), w, h, { target: 0.8, contrast: 0.9, tint: [1.0, 0.96, 0.93], cap: { lat: -10, amount: 0.6, tint: [1.02, 0.93, 0.9] } });
+  return albedoColor(completeMap(L, seen, w, h, 801), w, h, { target: 0.8, contrast: 0.9, tint: [1.0, 0.96, 0.93], cap: { lat: -10, amount: 0.6, tint: [1.02, 0.93, 0.9] } });
 }
 
 const jpeg = (rgb, w, h, ow = w, oh = h) =>
@@ -469,7 +469,7 @@ const jpeg = (rgb, w, h, ow = w, oh = h) =>
 
 /**
  * Fill a Hubble map's gaps: rows outside [latMin, latMax] (planetographic) and
- * black or fringed pixels within take the zonal colour of their row, or of the
+ * black or fringed pixels within take the zonal color of their row, or of the
  * nearest good row; `mirror` reflects the far hemisphere instead. Then remap rows
  * to parametric latitude for a globe flattened to `polar / equatorial`.
  */
@@ -562,7 +562,7 @@ function fillGiant(rgb, w, h, { latMin, latMax, flat, mirror = false, fringe = 7
   return outBuf;
 }
 
-/** Saturn's hexagon: a hexagonal jet at ~78°N (planetographic), bluish-grey around a darker polar vortex. */
+/** Saturn's hexagon: a hexagonal jet at ~78°N (planetographic), bluish-gray around a darker polar vortex. */
 function saturnPole(rgb, w, h) {
   const { fbm } = makeNoise(78);
   for (let y = 0; y < h; y++) {
@@ -590,8 +590,8 @@ function saturnPole(rgb, w, h) {
 }
 
 /**
- * White balance to a known true colour: Hubble's filter composites are not true
- * colour. Each channel is scaled so the map's mean matches `target`, and the
+ * White balance to a known true color: Hubble's filter composites are not true
+ * color. Each channel is scaled so the map's mean matches `target`, and the
  * spread about the mean stretched by `contrast` so faint bands still show.
  */
 function balance(rgb, target, contrast) {
@@ -611,7 +611,7 @@ async function giant(name, file, opts) {
   const src = await cached(`${OPAL}/${file}`, `opal/${file.split('/').pop()}`);
   const meta = await sharp(src).metadata();
   const w = meta.width - (meta.width % 2), h = Math.floor(w / 2);
-  let rgb = await sharp(src).resize(w, h, { fit: 'fill' }).removeAlpha().toColourspace('srgb').raw().toBuffer();
+  let rgb = await sharp(src).resize(w, h, { fit: 'fill' }).removeAlpha().toColorspace('srgb').raw().toBuffer();
   // OPAL: left edge 0° System III west longitude, decreasing to the right = 0° east, increasing
   rgb = roll(rgb, w, h, 3, 0);
   if (name === 'saturn') saturnPole(rgb, w, h);
@@ -619,7 +619,7 @@ async function giant(name, file, opts) {
   if (opts.target) balance(rgb, opts.target, opts.contrast ?? 1);
   const W = opts.size, H = W / 2;
   const big = await sharp(rgb, { raw: { width: w, height: h, channels: 3 } }).resize(W, H, { kernel: 'lanczos3' }).modulate({ saturation: opts.saturation ?? 1 }).raw().toBuffer();
-  await colourTiers(`${name}-color`, big, W, H);
+  await colorTiers(`${name}-color`, big, W, H);
 }
 
 // ------------------------------------------------------------------ main
@@ -631,17 +631,17 @@ const only = process.argv.slice(2);
 const want = (k) => !only.length || only.includes(k);
 
 if (want('mercury')) {
-  // MD3 colour is three filters (430, 750, 1000 nm) as RGB: true colour is close to grey, a little warm
+  // MD3 color is three filters (430, 750, 1000 nm) as RGB: true color is close to gray, a little warm
   const rgb = await usgsMap('Mercury_MESSENGER_MDIS_Basemap_MD3Color_Mosaic_Global_665m.tif', 4096, 2048);
   const warm = await sharp(rgb, { raw: { width: 4096, height: 2048, channels: 3 } }).modulate({ saturation: 0.32 }).tint({ r: 255, g: 238, b: 220 }).raw().toBuffer();
-  await colourTiers('mercury-color', warm, 4096, 2048);
+  await colorTiers('mercury-color', warm, 4096, 2048);
   const dem = await cached(`${USGS}/Mercury_Messenger_USGS_DEM_Global_665m_v2_32bit_clon0.tif`);
   await reliefTier('mercury-relief', await elevation(dem, 4096, 2048), 4096, 2048, 2439.4);
 }
 
 if (want('venus')) {
   const rgb = await usgsMap('Venus_Magellan_C3-MDIR_Colorized_Global_Mosaic_4641m.tif', 4096, 2048);
-  await colourTiers('venus-color', rgb, 4096, 2048);
+  await colorTiers('venus-color', rgb, 4096, 2048);
   const dem = await cached(`${USGS}/Venus_Magellan_Topography_Global_4641m_v02.tif`);
   await reliefTier('venus-relief', await elevation(dem, 4096, 2048), 4096, 2048, 6051.8);
 
@@ -668,7 +668,7 @@ if (want('venus')) {
 if (want('giants')) {
   await giant('jupiter', 'cycle32/jupiter/hlsp_opal_hst_wfc3-uvis_jupiter-2025a_f395n-f502n-f631n_v1_globalmap.tif', { latMin: -78, latMax: 82, flat: 66854 / 71492, size: 4096, fringe: 255 });
   await giant('saturn', 'cycle32/saturn/hlsp_opal_hst_wfc3-uvis_saturn-2025a_f395n-f502n-f631n_v1_globalmap.tif', { latMin: -76, latMax: 79, flat: 54364 / 60268, size: 2048, fringe: 45, target: '#d6c39c', contrast: 1.4 });
-  // Uranus and Neptune in true colour: both a pale greenish blue, Neptune a little bluer
+  // Uranus and Neptune in true color: both a pale greenish blue, Neptune a little bluer
   // (Irwin et al. 2024, MNRAS 527, 11521), not the deep blue of Voyager's enhanced images
   await giant('uranus', 'cycle33/uranus/hlsp_opal_hst_wfc3-uvis_uranus-2025a_f657n-f547m-f467m_v1_globalmap.tif', { latMin: 6, latMax: 90, flat: 24973 / 25559, size: 2048, mirror: true, fringe: 30, target: '#b4d8dc', contrast: 1.2 });
   await giant('neptune', 'cycle32/neptune/hlsp_opal_hst_wfc3-uvis_neptune-2025b_f467m-f547m-f657n_v1_globalmap.tif', { latMin: -90, latMax: 34, flat: 24341 / 24764, size: 2048, mirror: true, fringe: 30, target: '#9fc0dc', contrast: 1.8 });
@@ -678,22 +678,22 @@ if (want('moons')) {
   const moon = async (name, rgb, w, h, ow = 2048) => save(join(out, 'moons', `${name}.jpg`), await jpeg(rgb, w, h, ow, ow / 2));
   // Galilean moons
   await moon('io', await usgsMap('Io_GalileoSSI-Voyager_Global_Mosaic_ClrMerge_1km.tif', 4096, 2048), 4096, 2048);
-  await moon('europa', tintGrey(fillNoData(await usgsMap('Europa_Voyager_GalileoSSI_global_mosaic_500m.tif', 4096, 2048), 4096, 2048, 502), '#6e5440', '#f3ede2', 0.9), 4096, 2048);
+  await moon('europa', tintGray(fillNoData(await usgsMap('Europa_Voyager_GalileoSSI_global_mosaic_500m.tif', 4096, 2048), 4096, 2048, 502), '#6e5440', '#f3ede2', 0.9), 4096, 2048);
   await moon('ganymede', fillNoData(await usgsMap('Ganymede_Voyager_GalileoSSI_Global_ClrMosaic_1435m.tif', 4096, 2048), 4096, 2048, 503), 4096, 2048);
-  await moon('callisto', tintGrey(fillNoData(await usgsMap('Callisto_Voyager_GalileoSSI_global_mosaic_1km.tif', 4096, 2048), 4096, 2048, 504), '#2a241f', '#d6d0c6'), 4096, 2048);
+  await moon('callisto', tintGray(fillNoData(await usgsMap('Callisto_Voyager_GalileoSSI_global_mosaic_1km.tif', 4096, 2048), 4096, 2048, 504), '#2a241f', '#d6d0c6'), 4096, 2048);
   // Saturn's
-  await moon('titan', tintGrey(await usgsMap('Titan_ISS_P19658_Mosaic_Global_4km.tif', 2048, 1024), '#3a2a18', '#e2c08a'), 2048, 1024, 1024);
-  await moon('rhea', tintGrey(await usgsMap('Rhea_Cassini_Voyager_mosaic_global_417m.tif', 4096, 2048), '#4a4744', '#f2f0ec'), 4096, 2048);
-  await moon('iapetus', tintGrey(await usgsMap('Iapetus_Cassini_Voyager_mosaic_global_783m.tif', 4096, 2048), '#2b1c12', '#f0ece4', 0.85), 4096, 2048);
-  await moon('dione', tintGrey(await usgsMap('Dione_Cassini_Voyager_mosaic_global_154m.tif', 4096, 2048), '#55524e', '#f4f2ee'), 4096, 2048, 1024);
-  await moon('tethys', tintGrey(await usgsMap('Tethys_Cassini_mosaic_global_293m.tif', 4096, 2048), '#5e5b57', '#f6f4f0'), 4096, 2048, 1024);
-  await moon('enceladus', tintGrey(await usgsMap('Enceladus_Cassini_mosaic_global_110m.tif', 4096, 2048), '#7c7f84', '#fbfcfd'), 4096, 2048, 1024);
-  // Mimas: the DLR basemap is already centred on 0° (Herschel sits at 112°W, u = 0.19, as it should)
+  await moon('titan', tintGray(await usgsMap('Titan_ISS_P19658_Mosaic_Global_4km.tif', 2048, 1024), '#3a2a18', '#e2c08a'), 2048, 1024, 1024);
+  await moon('rhea', tintGray(await usgsMap('Rhea_Cassini_Voyager_mosaic_global_417m.tif', 4096, 2048), '#4a4744', '#f2f0ec'), 4096, 2048);
+  await moon('iapetus', tintGray(await usgsMap('Iapetus_Cassini_Voyager_mosaic_global_783m.tif', 4096, 2048), '#2b1c12', '#f0ece4', 0.85), 4096, 2048);
+  await moon('dione', tintGray(await usgsMap('Dione_Cassini_Voyager_mosaic_global_154m.tif', 4096, 2048), '#55524e', '#f4f2ee'), 4096, 2048, 1024);
+  await moon('tethys', tintGray(await usgsMap('Tethys_Cassini_mosaic_global_293m.tif', 4096, 2048), '#5e5b57', '#f6f4f0'), 4096, 2048, 1024);
+  await moon('enceladus', tintGray(await usgsMap('Enceladus_Cassini_mosaic_global_110m.tif', 4096, 2048), '#7c7f84', '#fbfcfd'), 4096, 2048, 1024);
+  // Mimas: the DLR basemap is already centered on 0° (Herschel sits at 112°W, u = 0.19, as it should)
   const zip = await cached(`${USGS}/Mimas/Cassini_DLR_Mimas.zip`);
   const mimasTif = join(cache, 'MI_170630_DLR_basemap.tif');
   if (!existsSync(mimasTif)) writeFileSync(mimasTif, execFileSync('unzip', ['-p', zip, 'Cassini_DLR/MI_170630_DLR_basemap.tif'], { maxBuffer: 1 << 28 }));
-  const mimas = await sharp(mimasTif, { limitInputPixels: false }).resize(2048, 1024, { fit: 'fill' }).removeAlpha().toColourspace('srgb').raw().toBuffer();
-  await moon('mimas', tintGrey(mimas, '#4f4c48', '#efedea'), 2048, 1024, 1024);
+  const mimas = await sharp(mimasTif, { limitInputPixels: false }).resize(2048, 1024, { fit: 'fill' }).removeAlpha().toColorspace('srgb').raw().toBuffer();
+  await moon('mimas', tintGray(mimas, '#4f4c48', '#efedea'), 2048, 1024, 1024);
 }
 
 if (want('moons') || want('triton')) {
@@ -706,7 +706,7 @@ if (want('moons') || want('uranian')) {
   // Uranus' five: Voyager 2's 1986 mosaics (USGS, via JPL's Solar System Simulator). Voyager
   // saw only the southern hemispheres, sunlit at the time; the north is completed here.
   // Brightness to relative albedo (geometric: Ariel 0.53, Titania 0.35, Miranda 0.32,
-  // Oberon 0.31, Umbriel 0.26), greys warmed a little for Titania and redder Oberon.
+  // Oberon 0.31, Umbriel 0.26), grays warmed a little for Titania and redder Oberon.
   const W = 2048, H = 1024;
   const moons = [
     ['ariel', 1, { target: 0.78, contrast: 0.9, tint: [1, 1, 1] }],
@@ -718,9 +718,9 @@ if (want('moons') || want('uranian')) {
   for (const [name, k, look] of moons) {
     const tif = await cached(`https://maps.jpl.nasa.gov/tmaps/pix/ura${k}vuu2.tif`);
     // 1440 x 720, east longitude from −180° at the left, as the app lays maps out
-    const grey = await sharp(tif).resize(W, H, { kernel: 'lanczos3' }).toColourspace('srgb').removeAlpha().raw().toBuffer();
-    const { L, seen } = lumSeen(grey, W, H);
-    await save(join(out, 'moons', `${name}.jpg`), await jpeg(albedoColour(completeMap(L, seen, W, H, 700 + k), W, H, look), W, H));
+    const gray = await sharp(tif).resize(W, H, { kernel: 'lanczos3' }).toColorspace('srgb').removeAlpha().raw().toBuffer();
+    const { L, seen } = lumSeen(gray, W, H);
+    await save(join(out, 'moons', `${name}.jpg`), await jpeg(albedoColor(completeMap(L, seen, W, H, 700 + k), W, H, look), W, H));
   }
 }
 

@@ -1,3 +1,3 @@
 [target.wasm32-unknown-unknown]
-# All evergreen browsers ship WASM SIMD; let LLVM auto-vectorise the hot loops.
+# All evergreen browsers ship WASM SIMD; let LLVM auto-vectorize the hot loops.
 rustflags = ["-C", "target-feature=+simd128"]

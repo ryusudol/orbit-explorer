@@ -51,15 +51,15 @@ describe('keyframe interpolation', () => {
     return worst;
   }
 
-  // ~1 m for near-circular orbits; the full catalogue's eccentric dead satellites and rocket
+  // ~1 m for near-circular orbits; the full catalog's eccentric dead satellites and rocket
   // bodies (COSMOS 1174, 367 x 1028 km: 2.5 m) are worse, being fastest and most curved at perigee
-  it('is a few metres at 60 s spacing', () => {
+  it('is a few meters at 60 s spacing', () => {
     const e = worstError(60, 'hermite');
     console.log(`hermite, 60 s keyframes: worst ${(e * 1e3).toFixed(3)} m`);
     expect(e).toBeLessThan(0.003); // km
   });
 
-  it('stays under half a kilometre at 300 s spacing (1 h/s time warp)', () => {
+  it('stays under half a kilometer at 300 s spacing (1 h/s time warp)', () => {
     const e = worstError(300, 'hermite');
     console.log(`hermite, 300 s keyframes: worst ${(e * 1e3).toFixed(1)} m`);
     expect(e).toBeLessThan(0.5);

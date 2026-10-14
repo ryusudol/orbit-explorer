@@ -14,11 +14,11 @@ export interface Track {
   jd0: number;
   stepS: number;
   count: number;
-  /** x, y, z (km), vx, vy, vz (km/s) per sample, body-centred ICRF (float64 far from the centre) */
+  /** x, y, z (km), vx, vy, vz (km/s) per sample, body-centered ICRF (float64 far from the center) */
   data: Float32Array | Float64Array;
 }
 
-/** Osculating elements about the world's centre, ICRF. Angles in radians. */
+/** Osculating elements about the world's center, ICRF. Angles in radians. */
 export interface Elements {
   /** UTC Julian date */
   epochJd: number;
@@ -36,7 +36,7 @@ export interface Path {
   jd0: number;
   stepS: number;
   count: number;
-  /** x, y, z (km) per point, body-centred ICRF */
+  /** x, y, z (km) per point, body-centered ICRF */
   data: Float32Array;
 }
 

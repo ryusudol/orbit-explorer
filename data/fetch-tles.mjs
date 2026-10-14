@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Builds the compact catalogue snapshot the web app loads (web/public/data/catalog.bin).
+// Builds the compact catalog snapshot the web app loads (web/public/data/catalog.bin).
 //
 // Sources
 //   * CelesTrak GP data (default): every active payload plus the major debris
 //     clouds and the "analyst" (unidentified) objects. No account needed.
-//   * Space-Track (optional): the full public catalogue, ~30k objects, when
+//   * Space-Track (optional): the full public catalog, ~30k objects, when
 //     SPACETRACK_USER / SPACETRACK_PASS are set.
 //
 // CelesTrak refreshes GP data every 2 hours and throttles clients that
@@ -132,7 +132,7 @@ async function fromCelestrak() {
     if (!text) { missing.push(group); continue; }
     for (const row of parseCsv(text)) all.push({ ...row, hint: category });
   }
-  // a partial catalogue would silently replace a complete one: keep the old snapshot instead
+  // a partial catalog would silently replace a complete one: keep the old snapshot instead
   if (missing.length) throw new Error(`no data for ${missing.join(', ')}; snapshot left unchanged`);
   return { rows: all, source: 'CelesTrak GP (active + debris groups + analyst)' };
 }
@@ -155,7 +155,7 @@ async function fromSpaceTrack(user, pass) {
     ...r,
     hint: r.objectType === 'DEBRIS' || r.objectType === 'UNKNOWN' ? Category.DEBRIS : r.objectType === 'ROCKET BODY' ? Category.ROCKET_BODY : undefined,
   }));
-  return { rows, source: 'Space-Track GP (full public catalogue)' };
+  return { rows, source: 'Space-Track GP (full public catalog)' };
 }
 
 function encode(objects, generatedMs) {

@@ -71,7 +71,7 @@ export function CoveragePanel() {
 }
 
 /**
- * The catalogue's farthest entries: the two Voyagers still carry their NORAD numbers,
+ * The catalog's farthest entries: the two Voyagers still carry their NORAD numbers,
  * though they left Earth orbit in 1977. A row flies there and follows.
  */
 function DeepSpace() {
@@ -150,7 +150,7 @@ export function CatalogPanel() {
         <Explain title="About the snapshot">
           Every 6 hours the site is redeployed with a fresh snapshot of the GP element sets, packed into a compact binary file (16 B of float64
           + 24 B of float32 per object), so the demo never calls CelesTrak or Space-Track live. Without credentials the script takes CelesTrak's active
-          payloads and major debris clouds (~20,000 objects); with Space-Track credentials it pulls the full public catalogue (~32,600).
+          payloads and major debris clouds (~20,000 objects); with Space-Track credentials it pulls the full public catalog (~32,600).
         </Explain>
       </Section>
     </>

@@ -1,10 +1,10 @@
 // A 3D model of the selected object, drawn at true scale where it actually is.
 //
-// The catalogue has no shapes, so each object gets a stylised model of its
+// The catalog has no shapes, so each object gets a stylized model of its
 // class (Starlink by hardware generation, a generic satellite bus, a rocket
 // stage, a fragment), plus named ones for Tiangong, the Voyagers, Juno and BepiColombo. The ISS and Hubble load NASA's own models (see
-// ASSETS), with the stylised ones standing in until they arrive. Models are in metres and
-// scaled to the scene's kilometres. Working spacecraft hold a nadir-pointing
+// ASSETS), with the stylized ones standing in until they arrive. Models are in meters and
+// scaled to the scene's kilometers. Working spacecraft hold a nadir-pointing
 // attitude (+X along track, +Z to the zenith) and turn their solar arrays to the
 // Sun; rocket bodies, fragments and dead satellites tumble.
 
@@ -35,12 +35,12 @@ export function kindOf(name: string, category: number, norad = 0): Kind {
 
 interface Model {
   root: THREE.Group;
-  /** metres from the object's centre to its farthest point */
+  /** meters from the object's center to its farthest point */
   radius: number;
   /** solar array mounts: turned about their Y axis so the cells (+Z) face the Sun */
   trackers: THREE.Object3D[];
   tumble: { axis: THREE.Vector3; rate: number; q0: THREE.Quaternion } | null;
-  /** spin-stabilised about +Z, which points at the Sun (Juno: 2 rpm), deg/s */
+  /** spin-stabilized about +Z, which points at the Sun (Juno: 2 rpm), deg/s */
   sunSpin?: number;
   /** geometry belongs to a cached asset: not ours to dispose */
   shared?: boolean;
@@ -107,7 +107,7 @@ function makeMaterials() {
     /** open shells (dishes, nozzles) are seen from both sides */
     whiteShell: m({ color: '#e4e3de', roughness: 0.75, side: THREE.DoubleSide }),
     darkShell: m({ color: '#2e3035', roughness: 0.55, metalness: 0.25, side: THREE.DoubleSide }),
-    grey: m({ color: '#7b7e84', roughness: 0.6, metalness: 0.3 }),
+    gray: m({ color: '#7b7e84', roughness: 0.6, metalness: 0.3 }),
     dark: m({ color: '#2e3035', roughness: 0.55, metalness: 0.25 }),
     black: m({ color: '#121316', roughness: 0.7 }),
   };
@@ -115,7 +115,7 @@ function makeMaterials() {
 const M = () => (mats ??= makeMaterials());
 type Mat = keyof ReturnType<typeof makeMaterials>;
 
-// ------------------------------------------------------------------ primitives (metres)
+// ------------------------------------------------------------------ primitives (meters)
 
 function box(mat: Mat, sx: number, sy: number, sz: number, x = 0, y = 0, z = 0): THREE.Mesh {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), M()[mat]);
@@ -123,7 +123,7 @@ function box(mat: Mat, sx: number, sy: number, sz: number, x = 0, y = 0, z = 0):
   return mesh;
 }
 
-/** Cylinder along `axis`, centred at (x, y, z); rTop is the +axis end. */
+/** Cylinder along `axis`, centered at (x, y, z); rTop is the +axis end. */
 function cyl(mat: Mat, r: number, len: number, axis: 'x' | 'y' | 'z', x = 0, y = 0, z = 0, rTop = r, segments = 32): THREE.Mesh {
   const g = new THREE.CylinderGeometry(rTop, r, len, segments);
   if (axis === 'x') g.rotateZ(-Math.PI / 2);
@@ -144,7 +144,7 @@ function panel(sx: number, sy: number, x = 0, y = 0, z = 0): THREE.Mesh {
   return mesh;
 }
 
-/** A parabolic dish opening towards `dir` (±1 along Z), rim radius r, depth d. */
+/** A parabolic dish opening toward `dir` (±1 along Z), rim radius r, depth d. */
 function dish(r: number, d: number, dir: 1 | -1): THREE.Mesh {
   const pts: THREE.Vector2[] = [];
   for (let i = 0; i <= 12; i++) {
@@ -190,7 +190,7 @@ function starlinkV1(): Partial<Model> {
   root.add(box('dark', 2.8, 1.4, 0.25));
   for (const [x, y] of [[-0.7, -0.35], [-0.7, 0.35], [0.7, -0.35], [0.7, 0.35]]) root.add(box('white', 1.2, 0.6, 0.05, x, y, -0.15));
   for (const x of [-0.9, 0.9]) root.add(cyl('silver', 0.12, 0.22, 'z', x, 0.35, 0.23));
-  root.add(cyl('grey', 0.08, 0.25, 'x', -1.5, 0, 0, 0.12));
+  root.add(cyl('gray', 0.08, 0.25, 'x', -1.5, 0, 0, 0.12));
   const wing = starlinkWing(-1, 0.7, 0.9, 2.8, 8.1, 1);
   root.add(wing);
   return { root, trackers: [wing] };
@@ -203,7 +203,7 @@ function starlinkV2(): Partial<Model> {
   // phased-array antennas and laser terminals
   for (const [x, y] of [[-1.2, -0.6], [-1.2, 0.6], [1.2, -0.6], [1.2, 0.6]]) root.add(box('white', 1.3, 1.0, 0.06, x, y, -0.2));
   for (const x of [-1.5, 0, 1.5]) root.add(cyl('silver', 0.16, 0.3, 'z', x, -0.9, 0.32));
-  root.add(cyl('grey', 0.12, 0.35, 'x', -2.2, 0, 0, 0.18));
+  root.add(cyl('gray', 0.12, 0.35, 'x', -2.2, 0, 0, 0.18));
   // one long array on a boom off the -Y edge
   const wing = starlinkWing(-1, 1.35, 1.55, 4.0, 12.4, 2);
   root.add(wing);
@@ -219,7 +219,7 @@ function starlinkV3(): Partial<Model> {
   root.add(box('dark', 7.4, 2.7, 0.6));
   for (const x of [-2.4, 0, 2.4]) for (const y of [-0.62, 0.62]) root.add(box('white', 2.2, 1.1, 0.06, x, y, -0.33));
   for (const x of [-3.0, -1.0, 1.0, 3.0]) root.add(cyl('silver', 0.2, 0.36, 'z', x, x < 0 ? -0.9 : 0.9, 0.48));
-  for (const y of [-0.6, 0.6]) root.add(cyl('grey', 0.16, 0.45, 'x', -3.9, y, 0, 0.24));
+  for (const y of [-0.6, 0.6]) root.add(cyl('gray', 0.16, 0.45, 'x', -3.9, y, 0, 0.24));
   const wings = ([1, -1] as const).map((s) => starlinkWing(s, 1.35, 1.2, 4.4, 13.5, 2));
   root.add(...wings);
   return { root, trackers: wings };
@@ -233,8 +233,8 @@ function bus(rand: () => number): Partial<Model> {
   // Earth-facing dish and its feed
   const d = dish(w * 0.38, w * 0.1, -1);
   d.position.set(w * 0.1, 0, -h / 2 - 0.05);
-  root.add(d, cyl('frame', 0.03, w * 0.25, 'z', w * 0.1, 0, -h / 2 - w * 0.12), cyl('grey', 0.06, 0.12, 'z', w * 0.1, 0, -h / 2 - w * 0.26));
-  root.add(cyl('grey', 0.05, 0.6, 'z', -w * 0.3, w * 0.3, h / 2 + 0.3), cyl('dark', 0.1, 0.25, 'x', -w / 2 - 0.12, 0, 0, 0.06));
+  root.add(d, cyl('frame', 0.03, w * 0.25, 'z', w * 0.1, 0, -h / 2 - w * 0.12), cyl('gray', 0.06, 0.12, 'z', w * 0.1, 0, -h / 2 - w * 0.26));
+  root.add(cyl('gray', 0.05, 0.6, 'z', -w * 0.3, w * 0.3, h / 2 + 0.3), cyl('dark', 0.1, 0.25, 'x', -w / 2 - 0.12, 0, 0, 0.06));
   const trackers: THREE.Object3D[] = [];
   const panels = 2 + Math.floor(rand() * 3), pw = 1.5 + rand() * 0.5, pl = 1.6 + rand() * 0.6;
   for (const s of [1, -1]) {
@@ -252,7 +252,7 @@ function hubble(): Partial<Model> {
   const root = new THREE.Group();
   root.add(cyl('silver', 2.1, 8.7, 'x', 2.0, 0, 0)); // light shield and forward shell
   root.add(cyl('silver', 2.2, 4.4, 'x', -4.5, 0, 0)); // equipment section
-  root.add(cyl('grey', 2.2, 0.15, 'x', -2.2, 0, 0));
+  root.add(cyl('gray', 2.2, 0.15, 'x', -2.2, 0, 0));
   root.add(cyl('dark', 2.0, 0.6, 'x', -7.0, 0, 0, 2.2));
   const door = cyl('silver', 2.05, 0.12, 'x', 0, 0, 0, 2.05);
   door.position.set(6.6, 0, 2.15);
@@ -276,11 +276,11 @@ function iss(): Partial<Model> {
   const root = new THREE.Group();
   const Z_TRUSS = 4.6;
   // integrated truss along the orbit normal, modules strung along the track below it
-  root.add(box('grey', 3.6, 92, 3.2, 0, 0, Z_TRUSS));
-  root.add(box('grey', 2.6, 18, 2.6, 0, 52, Z_TRUSS), box('grey', 2.6, 18, 2.6, 0, -52, Z_TRUSS));
+  root.add(box('gray', 3.6, 92, 3.2, 0, 0, Z_TRUSS));
+  root.add(box('gray', 2.6, 18, 2.6, 0, 52, Z_TRUSS), box('gray', 2.6, 18, 2.6, 0, -52, Z_TRUSS));
   for (let y = -44; y <= 44; y += 4) root.add(box('frame', 3.7, 0.2, 3.3, 0, y, Z_TRUSS));
   const modules: [number, number, number][] = [
-    // x centre, length, radius
+    // x center, length, radius
     [17.5, 7.2, 2.2], // Harmony
     [9.0, 8.5, 2.15], // Destiny
     [2.8, 5.5, 2.3], // Unity
@@ -289,7 +289,7 @@ function iss(): Partial<Model> {
   ];
   for (const [x, len, r] of modules) root.add(cyl('white', r, len, 'x', x, 0, 0));
   root.add(cyl('white', 2.25, 6.9, 'y', 17.5, 6.0, 0), cyl('white', 2.2, 11.2, 'y', 17.5, -7.6, 0)); // Columbus, Kibo
-  root.add(box('grey', 5.0, 4.8, 1.2, 17.5, -15.2, 0.6)); // Kibo exposed facility
+  root.add(box('gray', 5.0, 4.8, 1.2, 17.5, -15.2, 0.6)); // Kibo exposed facility
   root.add(cyl('white', 1.4, 4.0, 'z', -6.5, 0, -3.8), cyl('white', 1.3, 6.5, 'z', -12.0, 0, -4.2)); // nadir docking modules
   root.add(cyl('white', 1.35, 7.0, 'x', -29.5, 0, 0, 1.1)); // Progress at the aft port
   // radiators hang from the inner truss
@@ -340,7 +340,7 @@ function rocket(rand: () => number): Partial<Model> {
   root.add(cyl('white', r, len, 'x'));
   root.add(cyl('dark', r * 1.01, len * 0.08, 'x', len * 0.22, 0, 0));
   root.add(cyl('gold', r * 0.75, 0.9, 'x', len / 2 + 0.45, 0, 0, r * 0.55)); // payload adapter
-  root.add(cyl('grey', r, 0.4, 'x', -len / 2 - 0.2, 0, 0, r * 0.6)); // thrust structure
+  root.add(cyl('gray', r, 0.4, 'x', -len / 2 - 0.2, 0, 0, r * 0.6)); // thrust structure
   const bell: THREE.Vector2[] = [];
   for (let i = 0; i <= 10; i++) bell.push(new THREE.Vector2(0.18 * r + 0.55 * r * (i / 10) ** 1.6, -1.6 * r * (i / 10)));
   const g = new THREE.LatheGeometry(bell, 36);
@@ -360,7 +360,7 @@ function fragment(rand: () => number): Partial<Model> {
   g.computeVertexNormals();
   const size = 0.15 + 0.6 * rand();
   g.scale(size, size * (0.4 + 0.4 * rand()), size * (0.1 + 0.25 * rand()));
-  const mats: Mat[] = ['gold', 'silver', 'grey', 'dark'];
+  const mats: Mat[] = ['gold', 'silver', 'gray', 'dark'];
   root.add(new THREE.Mesh(g, M()[mats[Math.floor(rand() * mats.length)]]));
   if (rand() < 0.5) {
     const shard = panel(size * 0.9, size * 0.6);
@@ -383,7 +383,7 @@ function voyager(): Partial<Model> {
   root.add(cyl('gold', 0.6, 0.35, 'z', 0, 0, 0.5, 0.6, 10)); // propellant tank cover
   const hga = dish(1.83, 0.45, -1);
   hga.position.set(0, 0, -0.3);
-  root.add(hga, cyl('frame', 0.03, 0.8, 'z', 0, 0, -0.9), cyl('grey', 0.12, 0.3, 'z', 0, 0, -1.3));
+  root.add(hga, cyl('frame', 0.03, 0.8, 'z', 0, 0, -0.9), cyl('gray', 0.12, 0.3, 'z', 0, 0, -1.3));
   // RTG boom: three generators, finned cylinders
   root.add(box('frame', 2.9, 0.06, 0.06, -2.3, 0, 0.3));
   for (let k = 0; k < 3; k++) {
@@ -396,8 +396,8 @@ function voyager(): Partial<Model> {
   }
   // science boom and scan platform (cameras)
   root.add(box('frame', 2.4, 0.07, 0.07, 2.1, 0, 0.35));
-  root.add(box('grey', 0.5, 0.45, 0.45, 3.3, 0, 0.55), cyl('dark', 0.09, 0.5, 'x', 3.6, 0.12, 0.62), cyl('dark', 0.06, 0.35, 'x', 3.6, -0.12, 0.62));
-  root.add(cyl('grey', 0.12, 0.6, 'x', 2.6, 0, 0.35)); // cosmic ray / plasma instruments
+  root.add(box('gray', 0.5, 0.45, 0.45, 3.3, 0, 0.55), cyl('dark', 0.09, 0.5, 'x', 3.6, 0.12, 0.62), cyl('dark', 0.06, 0.35, 'x', 3.6, -0.12, 0.62));
+  root.add(cyl('gray', 0.12, 0.6, 'x', 2.6, 0, 0.35)); // cosmic ray / plasma instruments
   // magnetometer boom: a 13 m triangular truss, sensors at the end
   root.add(box('frame', 0.05, 13, 0.05, 0.3, 6.9, 0.2), box('frame', 0.05, 13, 0.05, 0.4, 6.9, 0.35));
   root.add(box('white', 0.12, 0.12, 0.12, 0.35, 13.4, 0.28), box('white', 0.1, 0.1, 0.1, 0.35, 7.5, 0.28));
@@ -422,7 +422,7 @@ function juno(): Partial<Model> {
   root.add(cyl('gold', 1.2, 0.9, 'z', 0, 0, -2.1, 1.2, 6)); // radiation vault and engine skirt
   const hga = dish(1.25, 0.32, 1);
   hga.position.set(0, 0, 1.8);
-  root.add(hga, cyl('grey', 0.18, 0.5, 'z', 0, 0, 2.4));
+  root.add(hga, cyl('gray', 0.18, 0.5, 'z', 0, 0, 2.4));
   for (let k = 0; k < 3; k++) {
     const a = (k * 2 * Math.PI) / 3;
     const wing = new THREE.Group();
@@ -512,7 +512,7 @@ type Axis = [number, number, number];
 
 interface Asset {
   url: string;
-  metresPerUnit: number;
+  metersPerUnit: number;
   /** where the file's x, y and z axes point in our frame (+X along track, +Y orbit normal, +Z zenith) */
   axes: [Axis, Axis, Axis];
   /** meshes to leave out, by name */
@@ -528,21 +528,21 @@ interface Asset {
  * without copyright under NASA's media guidelines.
  */
 const ASSETS: Partial<Record<Kind, Asset>> = {
-  // Hubble Space Telescope (A), DigitalSpace Corporation. Modelled in inches, long axis on
+  // Hubble Space Telescope (A), DigitalSpace Corporation. Modeled in inches, long axis on
   // y, arrays spanning x and facing z. Laid along the orbit normal, it rolls to keep its
   // arrays on the Sun.
   hubble: {
     url: '/models/hubble.glb',
-    metresPerUnit: 0.0254,
+    metersPerUnit: 0.0254,
     axes: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
     track: 'all',
   },
   // International Space Station (ISS) (B), Michael D. Carbajal. Truss on z (45.8 units for
-  // its 109 m), modules on y, arrays facing x. Every material is the same grey, so parts
+  // its 109 m), modules on y, arrays facing x. Every material is the same gray, so parts
   // are restyled by material name. Seven small parts float ~100 m off the station: dropped.
   iss: {
     url: '/models/iss.glb',
-    metresPerUnit: 109 / 45.8,
+    metersPerUnit: 109 / 45.8,
     axes: [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
     drop: /^(bendedtru|pCylinder)/,
     track: /^lambert7SG/, // the eight main array wings, turned by the alpha joints about the truss
@@ -559,7 +559,7 @@ let gltf: GLTFLoader | null = null;
 const assets = new Map<string, Promise<THREE.Group>>();
 
 /**
- * Load (once) and normalise an asset: our materials, metres, our axes, centred on
+ * Load (once) and normalize an asset: our materials, meters, our axes, centered on
  * its bounding box. Sun-tracking parts sit under groups named 'tracker'.
  */
 function loadAsset(cfg: Asset): Promise<THREE.Group> {
@@ -589,7 +589,7 @@ function loadAsset(cfg: Asset): Promise<THREE.Group> {
     unit.add(scene);
     const [ax, ay, az] = cfg.axes.map((a) => new THREE.Vector3(...a));
     unit.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(ax, ay, az));
-    unit.scale.setScalar(cfg.metresPerUnit);
+    unit.scale.setScalar(cfg.metersPerUnit);
     unit.updateMatrixWorld(true);
     unit.position.sub(new THREE.Box3().setFromObject(unit).getCenter(new THREE.Vector3()));
     const root = new THREE.Group();
@@ -603,7 +603,7 @@ function loadAsset(cfg: Asset): Promise<THREE.Group> {
       } else {
         const re = cfg.track;
         const parts = root.getObjectsByProperty('isMesh', true).filter((o) => [(o as THREE.Mesh).material].flat().some((m) => re.test(m.name)));
-        // the pivot: the parts' centre, which for wings in opposed pairs lies on their joints' axis
+        // the pivot: the parts' center, which for wings in opposed pairs lies on their joints' axis
         const box = new THREE.Box3();
         for (const o of parts) box.expandByObject(o);
         tracker.position.copy(box.getCenter(new THREE.Vector3()));
@@ -651,19 +651,19 @@ export class Spacecraft {
     this.object.frustumCulled = false;
   }
 
-  /** km from the object's centre to its farthest point (0 with nothing shown) */
+  /** km from the object's center to its farthest point (0 with nothing shown) */
   get radiusKm(): number {
     return this.model ? this.model.radius / 1000 : 0;
   }
 
-  /** Build the model for catalogue object `index` (cached while it stays the same). */
+  /** Build the model for catalog object `index` (cached while it stays the same). */
   setObject(index: number | null, name = '', category = 0, norad = 0) {
     if (index === this.forIndex) return;
     this.forIndex = index ?? -1;
     if (index === null) return this.show(null);
     const kind = kindOf(name, category, norad);
     this.show(build(kind, norad || index + 1));
-    // a NASA model replaces the stylised one when it arrives (usually during the fly-in)
+    // a NASA model replaces the stylized one when it arrives (usually during the fly-in)
     const asset = ASSETS[kind];
     if (asset)
       loadAsset(asset).then(
@@ -673,7 +673,7 @@ export class Spacecraft {
           const trackers = root.getObjectsByProperty('name', 'tracker');
           this.show({ root, radius: radiusOf(root), trackers, tumble: null, shared: true });
         },
-        (e) => console.warn(`spacecraft model ${asset.url} failed to load; keeping the stylised one`, e),
+        (e) => console.warn(`spacecraft model ${asset.url} failed to load; keeping the stylized one`, e),
       );
   }
 
@@ -691,10 +691,10 @@ export class Spacecraft {
   /**
    * Place and light the model. `sunDir` is the unit vector to the Sun, `sunlit`
    * the fraction of the solar disc visible (0 in Earth's shadow), `simS` sim seconds,
-   * `fromCentre` its position from its world's centre (for its attitude), if the
+   * `fromCenter` its position from its world's center (for its attitude), if the
    * scene's origin isn't there.
    */
-  update(pos: THREE.Vector3, vel: THREE.Vector3, sunDir: THREE.Vector3, sunlit: number, simS: number, visible: boolean, fromCentre = pos) {
+  update(pos: THREE.Vector3, vel: THREE.Vector3, sunDir: THREE.Vector3, sunlit: number, simS: number, visible: boolean, fromCenter = pos) {
     const m = this.model;
     this.object.visible = visible && m !== null;
     if (!m || !this.object.visible) return;
@@ -705,7 +705,7 @@ export class Spacecraft {
       // spin axis (+Z) on the Sun, turning about it
       this.body.quaternion.setFromUnitVectors(_z.set(0, 0, 1), sunDir).multiply(_q.setFromAxisAngle(_x.set(0, 0, 1), THREE.MathUtils.degToRad((m.sunSpin * simS) % 360)));
     } else {
-      orbitFrame(fromCentre, vel, this.body.quaternion);
+      orbitFrame(fromCenter, vel, this.body.quaternion);
     }
     // arrays: the Sun's direction in the body frame, projected on each mount's XZ plane
     _s.copy(sunDir).applyQuaternion(_q.copy(this.body.quaternion).invert());
@@ -717,7 +717,7 @@ export class Spacecraft {
     // in Earth's shadow over the night side a dark hull would vanish entirely
     this.shade.rim = 1 - sunlit;
     // light off the Earth below: strong over the day side, nothing over the night side
-    const up = _z.copy(fromCentre).normalize();
+    const up = _z.copy(fromCenter).normalize();
     this.earthshine.position.copy(up).negate();
     this.earthshine.intensity = 0.05 + 0.7 * Math.max(0, up.dot(sunDir));
   }

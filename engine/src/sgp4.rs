@@ -324,7 +324,7 @@ pub fn gstime(jdut1: f64) -> f64 {
 }
 
 impl Satrec {
-    /// Initialise the propagator from mean elements (the reference's `sgp4init`).
+    /// Initialize the propagator from mean elements (the reference's `sgp4init`).
     pub fn new(el: &Elements, grav: Gravity, opsmode: OpsMode) -> Satrec {
         let deg2rad = PI / 180.0;
         let xpdotp = 1440.0 / (2.0 * PI); // 229.1831180523293
@@ -524,7 +524,7 @@ impl Satrec {
             }
         }
 
-        // propagate to zero epoch to initialise the remaining state
+        // propagate to zero epoch to initialize the remaining state
         let _ = self.propagate(0.0);
         self.init = false;
     }

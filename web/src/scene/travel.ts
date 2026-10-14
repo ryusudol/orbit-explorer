@@ -3,9 +3,9 @@
 // Distances span five orders of magnitude (a few thousand km around a planet,
 // 10⁸ km to Mars), so the flight is planned in log-distance. For the first part
 // the camera rises away from the origin body A, its distance growing
-// geometrically while it swings round to A's side facing the destination B and
+// geometrically while it swings around to A's side facing the destination B and
 // turns to look at it. For the second part it falls toward B, the distance
-// shrinking geometrically, and swings round to B's sunlit side. The halfway
+// shrinking geometrically, and swings around to B's sunlit side. The halfway
 // point is where the two parts meet, D/2 from each body. Splitting the time in
 // proportion to each part's log-distance range makes the speed continuous there.
 // The camera never passes through either body: its distance from A, then from B,
@@ -14,7 +14,7 @@
 // When one end of the flight is much farther out than the two worlds are apart
 // (the Oort cloud's view of the Sun from 60,000 au, after leaving the Earth 1 au
 // from it), there is no halfway to fall from: the flight is one long zoom. The
-// distance changes geometrically from start to end, the centre it is measured
+// distance changes geometrically from start to end, the center it is measured
 // from slides from the near world to the far one while the camera is already
 // several times their separation away, and the direction turns while the camera
 // is still close to the near world, so it can't sweep through either body.
@@ -35,7 +35,7 @@ export function slerp(a: V3, b: V3, t: number): V3 {
   if (c > 0.99999) return unit(add(scale(a, 1 - t), scale(b, t)));
   let axisPerp: V3;
   if (c < -0.99999) {
-    // antiparallel: go round through any perpendicular, preferring one in the equatorial plane
+    // antiparallel: go around through any perpendicular, preferring one in the equatorial plane
     axisPerp = unit(Math.abs(a[2]) < 0.9 ? cross(a, [0, 0, 1]) : cross(a, [1, 0, 0]));
   } else {
     axisPerp = unit(sub(b, scale(a, c)));
@@ -121,7 +121,7 @@ function zoomPose(plan: TravelPlan, k: number, B: V3, D: number): { pos: V3; loo
   const outbound = r1 > r0;
   const lr = Math.log(r0) + (Math.log(r1) - Math.log(r0)) * k;
   const r = Math.exp(lr);
-  // centre: the near world while within 2D of it, the far one beyond 8D
+  // center: the near world while within 2D of it, the far one beyond 8D
   const w = smoothstep(Math.log(2 * D), Math.log(8 * D), lr);
   const c = outbound ? scale(B, w) : scale(B, 1 - w);
   // direction: turned while near the near world

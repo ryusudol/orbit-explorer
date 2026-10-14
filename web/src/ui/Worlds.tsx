@@ -32,7 +32,7 @@ export const MODES_BY_WORLD: Record<BodyId, { id: Tab; label: string; icon: Icon
           { id: 'route', label: 'Routing', icon: 'route', key: '2' },
           { id: 'conj', label: 'Conjunctions', icon: 'radar', key: '3' },
           { id: 'coverage', label: 'Coverage', icon: 'globe', key: '4' },
-          { id: 'catalog', label: 'Catalogue', icon: 'layers', key: '5' },
+          { id: 'catalog', label: 'Catalog', icon: 'layers', key: '5' },
         ]
       : BODIES[b].sites.length
         ? [EXPLORE, ORBITERS, RELAY]
@@ -168,7 +168,7 @@ export const farKm = (km: number) => (km > 2e9 ? `${fixed(km / 1e9, 2)} billion 
 /** The same, short enough to sit in a column: "391,790 km", "45M km", "1.26B km" */
 const nearKm = (km: number) => (km >= 1e9 ? `${fixed(km / 1e9, 2)}B km` : km > 3e6 ? `${fixed(km / 1e6, 0)}M km` : `${int(km)} km`);
 
-/** While travelling: where to, and how far that is from home. */
+/** While traveling: where to, and how far that is from home. */
 export function TravelCaption() {
   const travel = useStore((s) => s.travel);
   const timeMs = useStore((s) => s.timeMs);
@@ -266,7 +266,7 @@ function FleetRows({ rows, body, empty }: { rows: { o: { id: number; name: strin
       {rows.map(({ o, row }) => {
         const sel = orbiter === o.id;
         const moon = o.kind === 'moon';
-        // spacecraft: height above the surface (or cloud tops); moons: distance from the centre
+        // spacecraft: height above the surface (or cloud tops); moons: distance from the center
         const fig = !row?.valid ? '—' : body === 'oort' ? `${fixed((row.altKm + R) / 149_597_870.7, 1)} au` : moon ? distKm(row.altKm + R) : distKm(row.altKm);
         return (
           <button
@@ -350,12 +350,12 @@ export function FleetPanel() {
         </Section>
       )}
       {majors.length > 0 && (
-        <Section title={extra.length ? 'Major moons' : 'Moons'} aside="from the centre · period">
+        <Section title={extra.length ? 'Major moons' : 'Moons'} aside="from the center · period">
           <FleetRows rows={majors} body={body} />
         </Section>
       )}
       {extra.length > 0 && (
-        <Section title="Every other moon" aside="from the centre · period">
+        <Section title="Every other moon" aside="from the center · period">
           {inner.length > 0 && (
             <Fold title="Inner moons" count={inner.length}>
               <FleetRows rows={inner} body={body} />
@@ -379,8 +379,8 @@ export function FleetPanel() {
           ) : (
             <>
               There are no TLEs beyond Earth, and SGP4 models Earth’s gravity and air. These are the missions’ own trajectories and JPL’s moon ephemerides, as served by JPL
-              Horizons. Every deploy samples position and velocity every few minutes for the spacecraft and for every moon that goes round in under 20 days, and the scene
-              interpolates between samples with cubic Hermite splines. The slow, distant irregular moons take months to years to go round, so each gets one set of orbital elements,
+              Horizons. Every deploy samples position and velocity every few minutes for the spacecraft and for every moon that goes around in under 20 days, and the scene
+              interpolates between samples with cubic Hermite splines. The slow, distant irregular moons take months to years to go around, so each gets one set of orbital elements,
               moved by two-body motion. A mission’s prediction ends where its team last published one, so a spacecraft can vanish when you scrub far ahead.
             </>
           )}
@@ -501,7 +501,7 @@ export function RelayPanel() {
 
 const clock = (h: number) => `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
 const hm = (ms: number) => new Date(ms).toISOString().slice(11, 16);
-const dayMonth = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const dayMonth = (ms: number) => new Date(ms).toLocaleDateString('en-US', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 // ------------------------------------------------------------------ selected orbiter
 
@@ -544,7 +544,7 @@ export function OrbiterCard() {
               <div>
                 <span className="sel-v">{distKm(info.altKm + R).replace(' km', '')}</span>
                 <span className="sel-u">km</span>
-                <span className="sel-k">from {the(body)}’s centre</span>
+                <span className="sel-k">from {the(body)}’s center</span>
               </div>
             ) : (
               <div>

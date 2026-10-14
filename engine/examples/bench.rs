@@ -1,4 +1,4 @@
-//! Native benchmarks on the real catalogue snapshot, plus synthetic scaling.
+//! Native benchmarks on the real catalog snapshot, plus synthetic scaling.
 //!
 //!     cargo run --release --example bench -- ../web/public/data/catalog.bin [out.json]
 //!
@@ -43,7 +43,7 @@ fn ms(t: Instant) -> f64 {
     t.elapsed().as_secs_f64() * 1e3
 }
 
-/// Replicate the catalogue with shifted mean anomalies up to `n` objects.
+/// Replicate the catalog with shifted mean anomalies up to `n` objects.
 fn synthetic(packed: &[f64], n: usize) -> Vec<f64> {
     let m = packed.len() / ELEMENT_STRIDE;
     let mut out = Vec::with_capacity(n * ELEMENT_STRIDE);
@@ -64,7 +64,7 @@ fn main() {
     let snap = load(&path);
     let n = snap.category.len();
     let jd = snap.generated_jd;
-    println!("catalogue: {n} objects ({path})");
+    println!("catalog: {n} objects ({path})");
     let mut report = Vec::<String>::new();
 
     // ---- propagation ----
@@ -103,13 +103,13 @@ fn main() {
     let r = isl::route(&g, &sb, &london, &nyc, 25.0);
     let route_ms = ms(t);
     if let Some(r) = &r {
-        let fibre_km = 5570.0; // great circle
+        let fiber_km = 5570.0; // great circle
         println!(
-            "London->NYC: {:.0} km, {} sats, {:.2} ms one-way (fibre great-circle {:.2} ms) | dijkstra {route_ms:.3} ms",
+            "London->NYC: {:.0} km, {} sats, {:.2} ms one-way (fiber great-circle {:.2} ms) | dijkstra {route_ms:.3} ms",
             r.total_km,
             r.path.len(),
             r.total_km / C_KM_S * 1e3,
-            fibre_km / (C_KM_S / 1.4682) * 1e3
+            fiber_km / (C_KM_S / 1.4682) * 1e3
         );
     } else {
         println!("London->NYC: no route");
@@ -152,7 +152,7 @@ fn main() {
     }
 
     // ---- synthetic scaling ----
-    println!("synthetic scaling (catalogue replicated with phase offsets):");
+    println!("synthetic scaling (catalog replicated with phase offsets):");
     let mut rows = Vec::new();
     for &size in &[10_000usize, 30_000, 100_000] {
         let p = synthetic(&snap.packed, size);
