@@ -15,8 +15,13 @@ describe('keyframe interpolation', () => {
   beforeAll(() => {
     loadEngineSync();
     const c = loadSnapshot();
-    // 600 LEO objects (the hardest case: fastest angular rate)
-    const leo = subset(c, (i) => c.packed[i * ELEMENT_STRIDE + 1] > 14.5 && i % 7 === 0);
+    // 600 LEO objects (the hardest case: fastest angular rate). Above 16 rev/day (below
+    // ~270 km) an object is days from reentry and drag bends its track (STARLINK-1810 at
+    // 151 km: 3.7 m), so which ones a day's catalog happens to hold would decide the result.
+    const leo = subset(c, (i) => {
+      const revPerDay = c.packed[i * ELEMENT_STRIDE + 1];
+      return revPerDay > 14.5 && revPerDay < 16 && i % 7 === 0;
+    });
     const take = leo.packed.slice(0, 600 * ELEMENT_STRIDE);
     prop = new Propagator(take);
     n = prop.len();
